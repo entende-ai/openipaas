@@ -1,0 +1,552 @@
+{
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/postcss.config.mjs": {
+    "mtime": 1779660448.024443,
+    "ast_hash": "239f3ebf717465dc636818a1a619398d",
+    "semantic_hash": "239f3ebf717465dc636818a1a619398d"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/docker-entrypoint.sh": {
+    "mtime": 1779660448.0227013,
+    "ast_hash": "cde83839309ee753d622546ed681ba33",
+    "semantic_hash": "cde83839309ee753d622546ed681ba33"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/package.json": {
+    "mtime": 1779660448.0243542,
+    "ast_hash": "03e9635762a930dd3ef9fcecb7b5329b",
+    "semantic_hash": "03e9635762a930dd3ef9fcecb7b5329b"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/components.json": {
+    "mtime": 1779660448.0225165,
+    "ast_hash": "fc5c9e9a7b93eeb2f7b4e1ce0959e4a6",
+    "semantic_hash": "fc5c9e9a7b93eeb2f7b4e1ce0959e4a6"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/tsconfig.json": {
+    "mtime": 1779660448.0398839,
+    "ast_hash": "ee17fd1c97c735e9f3564e3f5251f125",
+    "semantic_hash": "ee17fd1c97c735e9f3564e3f5251f125"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/vitest.config.ts": {
+    "mtime": 1779660448.0399663,
+    "ast_hash": "70ad7648bd8222d6e9296692c3e8e21e",
+    "semantic_hash": "70ad7648bd8222d6e9296692c3e8e21e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/eslint.config.mjs": {
+    "mtime": 1779660448.0228026,
+    "ast_hash": "dfa1f5f6a7037bf39dc510f30b180002",
+    "semantic_hash": "dfa1f5f6a7037bf39dc510f30b180002"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/next.config.ts": {
+    "mtime": 1779660448.0228968,
+    "ast_hash": "9c694997eb700e4edfcc4dbf4ad3e20b",
+    "semantic_hash": "9c694997eb700e4edfcc4dbf4ad3e20b"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/.opencode/package.json": {
+    "mtime": 1779661182.4411263,
+    "ast_hash": "878115d31c721840fc3330b89a3f8c20",
+    "semantic_hash": "878115d31c721840fc3330b89a3f8c20"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/.opencode/opencode.json": {
+    "mtime": 1779661179.0749226,
+    "ast_hash": "e5f74d14a81702b55bdf53b33ec991d7",
+    "semantic_hash": "e5f74d14a81702b55bdf53b33ec991d7"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/.opencode/plugins/graphify.js": {
+    "mtime": 1779662002.6058016,
+    "ast_hash": "64ccd3c03dbfe0980b6095766f5c4e52",
+    "semantic_hash": "64ccd3c03dbfe0980b6095766f5c4e52"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/prisma/seed.ts": {
+    "mtime": 1779660448.0247073,
+    "ast_hash": "51553bb57b49cd73b539ab1d6b8df04c",
+    "semantic_hash": "51553bb57b49cd73b539ab1d6b8df04c"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/scripts/download-logos.js": {
+    "mtime": 1779660448.029264,
+    "ast_hash": "f1693ec2cbe39d48f8727b6c6fbccf0c",
+    "semantic_hash": "f1693ec2cbe39d48f8727b6c6fbccf0c"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/scripts/generate-provider.ts": {
+    "mtime": 1779660448.0293732,
+    "ast_hash": "56c3d5b97a8afc8ee551a3e4383d0f5d",
+    "semantic_hash": "56c3d5b97a8afc8ee551a3e4383d0f5d"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/middleware.ts": {
+    "mtime": 1779660448.038903,
+    "ast_hash": "554602c2f7e02742b9fdb61c79e493a1",
+    "semantic_hash": "554602c2f7e02742b9fdb61c79e493a1"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/types/contaazul_sales.ts": {
+    "mtime": 1779660448.0397003,
+    "ast_hash": "1c646dc9801f3f549086b5f7d2380ad6",
+    "semantic_hash": "1c646dc9801f3f549086b5f7d2380ad6"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/types/contaazul.ts": {
+    "mtime": 1779660448.0395205,
+    "ast_hash": "cc43e427c8cc6a4f470162db0cca08b9",
+    "semantic_hash": "cc43e427c8cc6a4f470162db0cca08b9"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/types/contaazul_products.ts": {
+    "mtime": 1779660448.0396092,
+    "ast_hash": "33c38965571ec9da49596540dc42ec8e",
+    "semantic_hash": "33c38965571ec9da49596540dc42ec8e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/types/unified.ts": {
+    "mtime": 1779660448.0397897,
+    "ast_hash": "7046b7f84319ce79a3a6ea78a0b00423",
+    "semantic_hash": "7046b7f84319ce79a3a6ea78a0b00423"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/layout.tsx": {
+    "mtime": 1779660448.0349672,
+    "ast_hash": "6ec9e56260fe76f313c425688a0c54a2",
+    "semantic_hash": "6ec9e56260fe76f313c425688a0c54a2"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/page.tsx": {
+    "mtime": 1779660448.0351937,
+    "ast_hash": "4ecc48eac1fe1612447310efe22c4302",
+    "semantic_hash": "4ecc48eac1fe1612447310efe22c4302"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/docs/page.tsx": {
+    "mtime": 1779660448.034662,
+    "ast_hash": "7fd18ebfec833267774b34d9df42188b",
+    "semantic_hash": "7fd18ebfec833267774b34d9df42188b"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/layout.tsx": {
+    "mtime": 1779660448.0339062,
+    "ast_hash": "c4ced04d389e36b06c807551d52d8c3c",
+    "semantic_hash": "c4ced04d389e36b06c807551d52d8c3c"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/clients/page.tsx": {
+    "mtime": 1779660448.0338185,
+    "ast_hash": "ee5208a16c100be50caa0f7ba7b30f9c",
+    "semantic_hash": "ee5208a16c100be50caa0f7ba7b30f9c"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/clients/components/GenerateKeyButton.tsx": {
+    "mtime": 1779660448.0337014,
+    "ast_hash": "dc76df371ef2b1784b1d805c7cc516ec",
+    "semantic_hash": "dc76df371ef2b1784b1d805c7cc516ec"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/clients/components/CreateClientDialog.tsx": {
+    "mtime": 1779660448.0336044,
+    "ast_hash": "5b8954fcad1a6c09a4d37952dfd0f1bb",
+    "semantic_hash": "5b8954fcad1a6c09a4d37952dfd0f1bb"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/linked-accounts/page.tsx": {
+    "mtime": 1779660448.0343843,
+    "ast_hash": "433ca68cd145badc1d73149aca77286b",
+    "semantic_hash": "433ca68cd145badc1d73149aca77286b"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/linked-accounts/components/ConnectErpDialog.tsx": {
+    "mtime": 1779660448.0341313,
+    "ast_hash": "cac83d3d1fdef1d52704b0aa788be020",
+    "semantic_hash": "cac83d3d1fdef1d52704b0aa788be020"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/linked-accounts/components/TestApiDialog.tsx": {
+    "mtime": 1779660448.0343077,
+    "ast_hash": "07bdcf492f93435d9048661fc6d0b279",
+    "semantic_hash": "07bdcf492f93435d9048661fc6d0b279"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/linked-accounts/components/CopyTokenButton.tsx": {
+    "mtime": 1779660448.0342197,
+    "ast_hash": "dee896edfd1ff831570a45ae1711ffb4",
+    "semantic_hash": "dee896edfd1ff831570a45ae1711ffb4"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/dashboard/logs/page.tsx": {
+    "mtime": 1779660448.0345287,
+    "ast_hash": "aca9e7c6f421d0c72e9e1378e94b560b",
+    "semantic_hash": "aca9e7c6f421d0c72e9e1378e94b560b"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/actions/oauth.ts": {
+    "mtime": 1779660448.029839,
+    "ast_hash": "d6c68972920ba53e5f9cb953e061cd96",
+    "semantic_hash": "d6c68972920ba53e5f9cb953e061cd96"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/actions/linked-account.ts": {
+    "mtime": 1779660448.0297363,
+    "ast_hash": "f3528195e44fe4923def15aeb5f1d0e0",
+    "semantic_hash": "f3528195e44fe4923def15aeb5f1d0e0"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/actions/test-api.ts": {
+    "mtime": 1779660448.029931,
+    "ast_hash": "66671605682606ae733aebecce7d9a7a",
+    "semantic_hash": "66671605682606ae733aebecce7d9a7a"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/actions/client.ts": {
+    "mtime": 1779660448.029627,
+    "ast_hash": "81ef098979def3f56a547abddf955084",
+    "semantic_hash": "81ef098979def3f56a547abddf955084"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/oauth/callback/conta-azul/route.ts": {
+    "mtime": 1779660448.0303826,
+    "ast_hash": "6ac0ff8e7eb12910b716963fdb0b1ce9",
+    "semantic_hash": "6ac0ff8e7eb12910b716963fdb0b1ce9"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/customers/route.ts": {
+    "mtime": 1779660448.0316358,
+    "ast_hash": "fdc528ffdb492a01eef088623b18edfd",
+    "semantic_hash": "fdc528ffdb492a01eef088623b18edfd"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/customers/connected-account/route.ts": {
+    "mtime": 1779660448.0313501,
+    "ast_hash": "b008cded3f8d8dcbebffce4f3c7943c9",
+    "semantic_hash": "b008cded3f8d8dcbebffce4f3c7943c9"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/customers/bulk/delete/route.ts": {
+    "mtime": 1779660448.0312195,
+    "ast_hash": "2794bf83b5cb43c9ce325dc525d9c510",
+    "semantic_hash": "2794bf83b5cb43c9ce325dc525d9c510"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/customers/bulk/deactivate/route.ts": {
+    "mtime": 1779660448.031073,
+    "ast_hash": "767b246377da966d291da2c22e6cacdc",
+    "semantic_hash": "767b246377da966d291da2c22e6cacdc"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/customers/bulk/activate/route.ts": {
+    "mtime": 1779660448.0309293,
+    "ast_hash": "5d9737fcfbdf20bd5d79baf5f68874eb",
+    "semantic_hash": "5d9737fcfbdf20bd5d79baf5f68874eb"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/customers/legacy/[id]/route.ts": {
+    "mtime": 1779660448.0315435,
+    "ast_hash": "cdd4e76edcd8d06e74fdfbe0a039c158",
+    "semantic_hash": "cdd4e76edcd8d06e74fdfbe0a039c158"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/customers/[id]/route.ts": {
+    "mtime": 1779660448.030708,
+    "ast_hash": "8e58f357863b05301c7d156c04833b73",
+    "semantic_hash": "8e58f357863b05301c7d156c04833b73"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/products/route.ts": {
+    "mtime": 1779660448.032525,
+    "ast_hash": "646da73e3f4597a6ca76a10616b74a7a",
+    "semantic_hash": "646da73e3f4597a6ca76a10616b74a7a"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/products/ncm/route.ts": {
+    "mtime": 1779660448.032437,
+    "ast_hash": "3b42c839470e2ae2f0265c5e38e762a9",
+    "semantic_hash": "3b42c839470e2ae2f0265c5e38e762a9"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/products/brands/route.ts": {
+    "mtime": 1779660448.0319808,
+    "ast_hash": "3c67265cca09e4bfdd4569731cdbd710",
+    "semantic_hash": "3c67265cca09e4bfdd4569731cdbd710"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/products/cest/route.ts": {
+    "mtime": 1779660448.032298,
+    "ast_hash": "bd5e8ee223d3f7e1e91df6a4ab221a64",
+    "semantic_hash": "bd5e8ee223d3f7e1e91df6a4ab221a64"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/products/units/route.ts": {
+    "mtime": 1779660448.032676,
+    "ast_hash": "59e99d7467414492253eca41c0cb4457",
+    "semantic_hash": "59e99d7467414492253eca41c0cb4457"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/products/[id]/route.ts": {
+    "mtime": 1779660448.031827,
+    "ast_hash": "30a38303ccdaca4ff0d5b402ceb5dc32",
+    "semantic_hash": "30a38303ccdaca4ff0d5b402ceb5dc32"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/products/categories/route.ts": {
+    "mtime": 1779660448.0321476,
+    "ast_hash": "7ded09ade90892b21eda547fb1ff1100",
+    "semantic_hash": "7ded09ade90892b21eda547fb1ff1100"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/sales/route.ts": {
+    "mtime": 1779660448.0332077,
+    "ast_hash": "4f0d4918fad2060b395506ab809f5979",
+    "semantic_hash": "4f0d4918fad2060b395506ab809f5979"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/sales/bulk/route.ts": {
+    "mtime": 1779660448.0331337,
+    "ast_hash": "99c1a8ab5df0436d86921e9fdc53b427",
+    "semantic_hash": "99c1a8ab5df0436d86921e9fdc53b427"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/sales/[id]/route.ts": {
+    "mtime": 1779660448.0329933,
+    "ast_hash": "cfd504e07fefd49cb03ffa49251f0222",
+    "semantic_hash": "cfd504e07fefd49cb03ffa49251f0222"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/sales/[id]/pdf/route.ts": {
+    "mtime": 1779660448.0329163,
+    "ast_hash": "3c52c9bef886c4cdd765e2d05a6703ef",
+    "semantic_hash": "3c52c9bef886c4cdd765e2d05a6703ef"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/app/api/unified/v1/sales/sellers/route.ts": {
+    "mtime": 1779660448.0333412,
+    "ast_hash": "bb22b8cb1f82d61643eebdbe64387a5a",
+    "semantic_hash": "bb22b8cb1f82d61643eebdbe64387a5a"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/tests/mocks/contaazul-customer.json": {
+    "mtime": 1779660448.0392969,
+    "ast_hash": "37cb5ea742a9412b3039168179ade011",
+    "semantic_hash": "37cb5ea742a9412b3039168179ade011"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/tests/mocks/omie-customer.json": {
+    "mtime": 1779660448.0393758,
+    "ast_hash": "a46d2de755358caa6ecf487e5fac0c9c",
+    "semantic_hash": "a46d2de755358caa6ecf487e5fac0c9c"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/tests/mappers/tiny.test.ts": {
+    "mtime": 1779660448.0391695,
+    "ast_hash": "98c186e348111711c5bad304b920dd45",
+    "semantic_hash": "98c186e348111711c5bad304b920dd45"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/tests/mappers/customers.test.ts": {
+    "mtime": 1779660448.039087,
+    "ast_hash": "638a2d0b3faf5fd17e3281aa3de0c33e",
+    "semantic_hash": "638a2d0b3faf5fd17e3281aa3de0c33e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/theme-provider.tsx": {
+    "mtime": 1779660448.035428,
+    "ast_hash": "fd3699b7330dd650753972a449acda00",
+    "semantic_hash": "fd3699b7330dd650753972a449acda00"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/Sidebar.tsx": {
+    "mtime": 1779660448.03534,
+    "ast_hash": "30c8907f3a7c5488d0c0778549874535",
+    "semantic_hash": "30c8907f3a7c5488d0c0778549874535"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/card.tsx": {
+    "mtime": 1779660448.0357616,
+    "ast_hash": "77a10bd948ca424972a28e704a3df604",
+    "semantic_hash": "77a10bd948ca424972a28e704a3df604"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/floating-icons-hero-section.tsx": {
+    "mtime": 1779660448.036274,
+    "ast_hash": "28445bce6f238d697e1e261d50ad6af1",
+    "semantic_hash": "28445bce6f238d697e1e261d50ad6af1"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/label.tsx": {
+    "mtime": 1779660448.0364568,
+    "ast_hash": "a70440da86bfc6a07f15197cca48cb08",
+    "semantic_hash": "a70440da86bfc6a07f15197cca48cb08"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/dialog.tsx": {
+    "mtime": 1779660448.0358381,
+    "ast_hash": "9e5faea4e66b170709403795facf11b5",
+    "semantic_hash": "9e5faea4e66b170709403795facf11b5"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/badge.tsx": {
+    "mtime": 1779660448.0355694,
+    "ast_hash": "e4ec840217040d5630ee6ed7213a1d72",
+    "semantic_hash": "e4ec840217040d5630ee6ed7213a1d72"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/table.tsx": {
+    "mtime": 1779660448.036773,
+    "ast_hash": "44f87727e60080863edb00fdd2fcd8da",
+    "semantic_hash": "44f87727e60080863edb00fdd2fcd8da"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/button.tsx": {
+    "mtime": 1779660448.03566,
+    "ast_hash": "7aa4cc837d57b89bc83affc59d15b973",
+    "semantic_hash": "7aa4cc837d57b89bc83affc59d15b973"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/dotted-surface.tsx": {
+    "mtime": 1779660448.0360513,
+    "ast_hash": "41f59fe07eb693aa13789eff0ff139c2",
+    "semantic_hash": "41f59fe07eb693aa13789eff0ff139c2"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/select.tsx": {
+    "mtime": 1779660448.036669,
+    "ast_hash": "ab95f478cb74d1906b07425c15b124cc",
+    "semantic_hash": "ab95f478cb74d1906b07425c15b124cc"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/components/ui/input.tsx": {
+    "mtime": 1779660448.0363636,
+    "ast_hash": "0607b02d99a2e92f9509223f36ccc6ec",
+    "semantic_hash": "0607b02d99a2e92f9509223f36ccc6ec"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/prisma.ts": {
+    "mtime": 1779660448.0378761,
+    "ast_hash": "097c4844c1b57c57404c03396a70c130",
+    "semantic_hash": "097c4844c1b57c57404c03396a70c130"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/api-auth.ts": {
+    "mtime": 1779660448.0369318,
+    "ast_hash": "e866ef13965fb4c2e9edec57e951b1d6",
+    "semantic_hash": "e866ef13965fb4c2e9edec57e951b1d6"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/unified-api-utils.ts": {
+    "mtime": 1779660448.0385816,
+    "ast_hash": "14ef75c20ad86ade8fbd25cfb64b0d59",
+    "semantic_hash": "14ef75c20ad86ade8fbd25cfb64b0d59"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/utils.ts": {
+    "mtime": 1779660448.0386672,
+    "ast_hash": "5a6fd53fdcf2be529e9cc0b718fde352",
+    "semantic_hash": "5a6fd53fdcf2be529e9cc0b718fde352"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/omie-utils.ts": {
+    "mtime": 1779660448.0376,
+    "ast_hash": "2a127a23fa8e720b99ce5d8da281253e",
+    "semantic_hash": "2a127a23fa8e720b99ce5d8da281253e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/openapi.ts": {
+    "mtime": 1779660448.0377839,
+    "ast_hash": "5d2e842e7db71b58e86e10cc6b884982",
+    "semantic_hash": "5d2e842e7db71b58e86e10cc6b884982"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/providers/IProvider.ts": {
+    "mtime": 1779660448.0380113,
+    "ast_hash": "d82219d3b168e63aeb5a0874262c251d",
+    "semantic_hash": "d82219d3b168e63aeb5a0874262c251d"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/providers/ProviderFactory.ts": {
+    "mtime": 1779660448.0380955,
+    "ast_hash": "85b0c90bd60f525c9c6caaef4d88804f",
+    "semantic_hash": "85b0c90bd60f525c9c6caaef4d88804f"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/providers/implementations/OmieProvider.ts": {
+    "mtime": 1779660448.0383232,
+    "ast_hash": "e80a44212156849dc19e7d56d0d416c2",
+    "semantic_hash": "e80a44212156849dc19e7d56d0d416c2"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/providers/implementations/TinyProvider.ts": {
+    "mtime": 1779660448.038397,
+    "ast_hash": "d1d444311d3f051cfe0f1a50077cbe9a",
+    "semantic_hash": "d1d444311d3f051cfe0f1a50077cbe9a"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/providers/implementations/ContaAzulProvider.ts": {
+    "mtime": 1779660448.0382352,
+    "ast_hash": "ec5e29313712052513ff3314ed86ead3",
+    "semantic_hash": "ec5e29313712052513ff3314ed86ead3"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/validations/unified-schemas.ts": {
+    "mtime": 1779660448.038817,
+    "ast_hash": "f804ed4ce5727dfce644198a8f93876d",
+    "semantic_hash": "f804ed4ce5727dfce644198a8f93876d"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/mappers/omie-customers.ts": {
+    "mtime": 1779660448.037186,
+    "ast_hash": "375ad92b477456e24d81018d8cde712c",
+    "semantic_hash": "375ad92b477456e24d81018d8cde712c"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/mappers/contaazul.ts": {
+    "mtime": 1779660448.037088,
+    "ast_hash": "3beeaf72861e79294c1f225d6f657769",
+    "semantic_hash": "3beeaf72861e79294c1f225d6f657769"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/mappers/products.ts": {
+    "mtime": 1779660448.0372915,
+    "ast_hash": "7d9e57d5527fe4cb599560be9087a263",
+    "semantic_hash": "7d9e57d5527fe4cb599560be9087a263"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/src/lib/mappers/sales.ts": {
+    "mtime": 1779660448.03751,
+    "ast_hash": "dca7e3056091445d948991b1f05dee8d",
+    "semantic_hash": "dca7e3056091445d948991b1f05dee8d"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/README.md": {
+    "mtime": 1779660448.0224283,
+    "ast_hash": "7a2385926bd66fbf64000026c92cb8a9",
+    "semantic_hash": "7a2385926bd66fbf64000026c92cb8a9"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/docker-compose.yml": {
+    "mtime": 1779660448.0226142,
+    "ast_hash": "211a103c814a452948be927bfb5c2a6d",
+    "semantic_hash": "211a103c814a452948be927bfb5c2a6d"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/AGENTS.md": {
+    "mtime": 1779661094.5390775,
+    "ast_hash": "f91924f36ae5331c9d527ec43d11419d",
+    "semantic_hash": "f91924f36ae5331c9d527ec43d11419d"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/CLAUDE.md": {
+    "mtime": 1779660448.022238,
+    "ast_hash": "5c27369b226fcf2be8a6cfe52224e767",
+    "semantic_hash": "5c27369b226fcf2be8a6cfe52224e767"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/file.svg": {
+    "mtime": 1779660448.025132,
+    "ast_hash": "d09f95206c3fa0bb9bd9fefabfd0ea71",
+    "semantic_hash": "d09f95206c3fa0bb9bd9fefabfd0ea71"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logo.png": {
+    "mtime": 1779660448.0256562,
+    "ast_hash": "8a84f0a3f6911859be9d345837a0e20e",
+    "semantic_hash": "8a84f0a3f6911859be9d345837a0e20e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/vercel.svg": {
+    "mtime": 1779660448.0289934,
+    "ast_hash": "c0af2f507b369b085b35ef4bbe3bcf1e",
+    "semantic_hash": "c0af2f507b369b085b35ef4bbe3bcf1e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/next.svg": {
+    "mtime": 1779660448.0288894,
+    "ast_hash": "8e061864f388b47f33a1c3780831193e",
+    "semantic_hash": "8e061864f388b47f33a1c3780831193e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/globe.svg": {
+    "mtime": 1779660448.025269,
+    "ast_hash": "2aaafa6a49b6563925fe440891e32717",
+    "semantic_hash": "2aaafa6a49b6563925fe440891e32717"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/window.svg": {
+    "mtime": 1779660448.0290864,
+    "ast_hash": "a2760511c65806022ad20adf74370ff3",
+    "semantic_hash": "a2760511c65806022ad20adf74370ff3"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logo.svg": {
+    "mtime": 1779660448.0258026,
+    "ast_hash": "e1c124e317d1964fd41b5d5db89a2999",
+    "semantic_hash": "e1c124e317d1964fd41b5d5db89a2999"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/hubspot.com.png": {
+    "mtime": 1779660448.0266814,
+    "ast_hash": "b87a031b99a0ae265a596c9bcf8b8589",
+    "semantic_hash": "b87a031b99a0ae265a596c9bcf8b8589"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/nuvemshop.com.br.png": {
+    "mtime": 1779660448.02692,
+    "ast_hash": "5c45fc94a376dd9b99d966380b16efb1",
+    "semantic_hash": "5c45fc94a376dd9b99d966380b16efb1"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/stripe.com.png": {
+    "mtime": 1779660448.0283678,
+    "ast_hash": "3893d68a2c215b3c9c2022149df00594",
+    "semantic_hash": "3893d68a2c215b3c9c2022149df00594"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/atlassian.com.png": {
+    "mtime": 1779660448.0259674,
+    "ast_hash": "a75e9e1e7264e25b00a64b67611407bf",
+    "semantic_hash": "a75e9e1e7264e25b00a64b67611407bf"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/omie.com.br.png": {
+    "mtime": 1779660448.0272136,
+    "ast_hash": "17209ab7740ae22249b3aeec9d3c3f00",
+    "semantic_hash": "17209ab7740ae22249b3aeec9d3c3f00"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/slack.com.png": {
+    "mtime": 1779660448.0281909,
+    "ast_hash": "bb8b2be6377cf64aad3b20e11c0f8bfc",
+    "semantic_hash": "bb8b2be6377cf64aad3b20e11c0f8bfc"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/quickbooks.intuit.com.png": {
+    "mtime": 1779660448.0273182,
+    "ast_hash": "41a783010c9ca71215d819e3b89add01",
+    "semantic_hash": "41a783010c9ca71215d819e3b89add01"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/salesforce.com.png": {
+    "mtime": 1779660448.0277162,
+    "ast_hash": "b5f81acf9f1c13e6095691aae776243a",
+    "semantic_hash": "b5f81acf9f1c13e6095691aae776243a"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/shopify.com.png": {
+    "mtime": 1779660448.0279558,
+    "ast_hash": "bf12559f565697fdc1bd96fc2e4e5fff",
+    "semantic_hash": "bf12559f565697fdc1bd96fc2e4e5fff"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/zendesk.com.png": {
+    "mtime": 1779660448.0287788,
+    "ast_hash": "050d55181c1c157f2910916443021280",
+    "semantic_hash": "050d55181c1c157f2910916443021280"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/vtex.com.png": {
+    "mtime": 1779660448.028668,
+    "ast_hash": "c980ed2db2fb52443bba8f3a9e0f6f5e",
+    "semantic_hash": "c980ed2db2fb52443bba8f3a9e0f6f5e"
+  },
+  "/Users/felipepersonmalta/Documents/Projetos/openipaas/openipaas/public/logos/contaazul.com.png": {
+    "mtime": 1779660448.0261974,
+    "ast_hash": "8473082431b2de10e56f209efd0e22a2",
+    "semantic_hash": "8473082431b2de10e56f209efd0e22a2"
+  }
+}
