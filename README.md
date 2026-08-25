@@ -1,70 +1,144 @@
 # 🚀 Open IpaaS
+
 **The open-source standard for universal B2B integrations.**
 
-Open IpaaS is a high-performance Node.js (Next.js) framework designed to unify communication with any global SaaS platform (CRMs, ERPs, HRIS, Ticketing, Accounting, e-Commerce, etc.) under a single **English-first**, **strongly-typed**, and **runtime-validated** API.
+Open IpaaS is a high-performance Next.js framework that unifies communication with any SaaS platform (ERPs, CRMs, e-commerce, accounting, ticketing) behind a single **English-first**, **strongly-typed**, **runtime-validated** API.
 
-We believe that enterprise-grade integrations shouldn't be locked behind expensive closed-source paywalls. Open IpaaS gives the community the power to build once and integrate with hundreds of platforms seamlessly.
+Enterprise-grade integrations shouldn't be locked behind closed-source paywalls.
 
-[Website](https://openipaas.com) | [Documentation](https://openipaas.com/docs) | [Contributing](#contributing)
+[Website](https://openipaas.com) · [Docs](https://openipaas.com/docs) · [Contributing](#-adding-a-provider)
 
 ---
 
 ## 💎 Why Open IpaaS?
 
-Integrating with fragmented business APIs is painful. You have to deal with non-standard variables, inconsistent payloads, multiple languages, and missing typing across different software categories. Open IpaaS solves this with:
-
-- 🌍 **English-First Architecture**: Your application communicates entirely in standardized English. The framework handles the translation and normalization of any upstream system (Salesforce, Shopify, QuickBooks, Zendesk, etc.) under the hood.
-- 🛡️ **Zod Shield**: Strict runtime validation. If a platform changes its API contract without warning, our shield blocks the inconsistency before it crashes your app.
-- 🔌 **Universal Plugin Architecture**: Add new providers in minutes using our automated CLI. No need to touch the core routing logic.
-- 📦 **Docker-Native DX**: Spin up the entire environment (Postgres DB + App + Seed data) with a single command.
+- 🌍 **English-first** — your app speaks one standardized vocabulary. The framework normalizes every upstream system underneath.
+- 🛡️ **Zod Shield** — every mapper ends in a runtime parse. If a platform changes its contract without warning, it fails at the boundary instead of corrupting your data.
+- 🔌 **Plugin architecture** — a provider is one folder plus one line in the registry. The core never changes.
+- 🔁 **Resilient by default** — per-account rate limiting, retry with exponential backoff, and refresh-and-replay on expired credentials, for every provider.
+- 🔓 **Never blocked** — `/passthrough` exposes the raw provider API with credentials handled, so a missing unified field never stops you.
 
 ## 🛠 Architecture
 
 ```mermaid
 graph LR
-    User([Developer]) --> UnifiedAPI[Unified API Route]
-    UnifiedAPI --> Factory[Provider Factory]
-    Factory --> Provider[SaaS Provider Plugin]
-    Provider --> Mapper[Zod Mapper]
-    Mapper --> SaaS[(Upstream SaaS API)]
+    Client([Your app]) --> Auth[withUnifiedAuth]
+    Auth --> Registry[Provider registry]
+    Registry --> Base[BaseProvider]
+    Base --> Mapper[Zod mapper]
+    Mapper --> SaaS[(Upstream API)]
 ```
 
-## 🚀 Quick Start
+`withUnifiedAuth` handles authentication, rate limiting, idempotency, error translation and request logging. `BaseProvider` handles URL building, throttling, retries, token refresh and passthrough. A provider implementation is left with mappers and endpoint paths.
 
-Open IpaaS was built for a flawless Developer Experience (DX).
+### Layout
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/felipeperson/openipaas.git
-   cd openipaas
-   ```
+```
+src/lib/providers/
+  core/               registry, BaseProvider, http, rate-limit, pagination, errors, types
+  implementations/
+    contaazul/        manifest.ts · provider.ts · mappers/ · types/
+    omie/
+    tiny/
+```
 
-2. **One-Click Launch:**
-   ```bash
-   docker-compose up --build
-   ```
-   *This will boot up Postgres, run migrations, and seed the database with test credentials and mock accounts.*
-
-3. **Access the Interactive Docs:**
-   Open `http://localhost:3000/docs` to test the unified endpoints immediately.
-
-## ➕ Adding a New Provider
-
-Creating a new provider (e.g., HubSpot, Shopify, Jira, SAP) is automated via our CLI:
+## 🚀 Quick start
 
 ```bash
-npm run generate-provider hubspot
+cp .env.example .env      # fill in the values described below
+docker-compose up --build # Postgres + migrations + seed + app
 ```
-This command instantly generates the provider class, implements the `IUnifiedProvider` interface stubs, and creates the boilerplate for unit tests.
 
----
+Then open `http://localhost:3000/docs` for the interactive reference.
+
+### Required environment
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `CREDENTIALS_ENCRYPTION_KEY` | 32 bytes (base64/hex). Encrypts stored ERP tokens at rest. **Required in production** |
+| `DASHBOARD_PASSWORD` + `DASHBOARD_SESSION_SECRET` | Gate the admin console. Without both, `/dashboard` is unreachable |
+| `INTERNAL_JOB_SECRET` | Authorizes the webhook delivery job |
+| `<SLUG>_CLIENT_ID` / `<SLUG>_CLIENT_SECRET` | OAuth app per provider, e.g. `CONTA_AZUL_CLIENT_ID` |
+
+Generate secrets with `openssl rand -base64 32`.
+
+## 📡 Using the API
+
+Every request carries two headers:
+
+```bash
+curl https://your-host/api/unified/v1/customers \
+  -H "Authorization: Bearer oip_live_..." \
+  -H "X-Account-Token: <connected account token>"
+```
+
+**Pagination** is cursor-based and provider-agnostic:
+
+```json
+{ "items": [...], "hasMore": true, "nextCursor": "eyJwYWdlIjoyfQ", "totalItems": 120 }
+```
+
+Pass `nextCursor` back as `?cursor=`. `totalItems` is best-effort — cursor-based upstreams cannot report a total.
+
+**Idempotency** — send `Idempotency-Key` on writes. Retrying with the same key replays the original response; reusing it with a different body returns `422`.
+
+**Errors** carry a stable `code` and a `requestId` (also in `X-Request-Id`). Upstream payloads are logged, never returned.
+
+**Capabilities** — `GET /api/unified/v1/providers` returns the catalog and the exact operation matrix. A `501 NOT_SUPPORTED` means the connected provider lacks that operation, and it is answered before any upstream call.
+
+**Passthrough** — anything the unified model does not cover:
+
+```bash
+curl https://your-host/api/unified/v1/passthrough/pessoas?pagina=1 \
+  -H "Authorization: Bearer oip_live_..." \
+  -H "X-Account-Token: ..."
+```
+
+## ➕ Adding a provider
+
+```bash
+npm run generate-provider bling
+```
+
+This scaffolds the folder — manifest, provider class, mapper stub, test — and prints the single registry line to add. The generated provider passes the contract suite immediately: it declares no capabilities and enables passthrough, so it is honest about what it can do from day one.
+
+Then:
+
+1. Fill in `manifest.ts` — base URL, auth, rate limit.
+2. Implement a method and declare its capability. The contract suite fails if the two disagree, in either direction.
+3. `npx vitest run`
+
+The **manifest is the single source of truth**: it drives the public catalog, the connect UI, the OpenAPI capability matrix and the 501 responses. Nothing else needs to know your provider exists.
+
+### Supported providers
+
+| Provider | Category | Auth | Status |
+| --- | --- | --- | --- |
+| Conta Azul | Accounting | OAuth2 | Customers, products, sales, sellers, PDF, bulk |
+| Omie | Accounting | App key/secret | Customers · passthrough |
+| Tiny (Olist) | Accounting | OAuth2 | Passthrough only |
+
+## 🔒 Security
+
+- ERP credentials are encrypted at rest (AES-256-GCM).
+- API keys are stored as SHA-256 digests — the plaintext is shown once, at creation.
+- OAuth uses single-use, time-limited server-side `state` (PKCE available per manifest).
+- The unified API is rate limited per client; each provider is throttled per connected account.
+- Upstream error payloads never reach API consumers.
+
+## 🧪 Tests
+
+```bash
+npm test
+```
+
+The contract suite in `src/tests/providers/contract.test.ts` runs against **every registered provider**, so a contribution either satisfies the shared contract or the build fails.
 
 ## 🤝 Contributing
 
-We want to build the largest open-source catalog of B2B integrations in the world. Whether it is an obscure local accounting system or a global CRM giant, we want it in Open IpaaS.
-
-If you need a specific integration, the best way to get it is by creating a Pull Request following our plugin architecture. Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
+We want the largest open-source catalog of B2B integrations in the world — from obscure local accounting systems to global CRM giants. The plugin architecture is designed so that adding one costs a folder, not a refactor.
 
 ## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+MIT. See `LICENSE`.
