@@ -18,7 +18,7 @@ export async function createClient(formData: FormData) {
 }
 
 export async function generateApiKey(clientId: string) {
-  const key = `sk_live_${crypto.randomBytes(16).toString('hex')}`
+  const key = `oip_live_${crypto.randomBytes(16).toString('hex')}`
 
   await prisma.apiKey.create({
     data: {

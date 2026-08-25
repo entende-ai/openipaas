@@ -25,6 +25,16 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ipaas_dev
       - NEXT_PUBLIC_API_URL=http://localhost:3000
+      # Local development only: the seed wipes every table before inserting fixtures.
+      - RUN_SEED=true
+      # Sourced from your shell/.env. Without an encryption key the app stores
+      # credentials in plaintext in dev, and refuses to start in production.
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:-}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
+      - DASHBOARD_SESSION_SECRET=${DASHBOARD_SESSION_SECRET:-}
+      - INTERNAL_JOB_SECRET=${INTERNAL_JOB_SECRET:-}
+      - CONTA_AZUL_CLIENT_ID=${CONTA_AZUL_CLIENT_ID:-}
+      - CONTA_AZUL_CLIENT_SECRET=${CONTA_AZUL_CLIENT_SECRET:-}
     depends_on:
       - db
 
