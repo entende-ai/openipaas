@@ -150,3 +150,49 @@ describe.each(slugs)('provider contract: %s', (slug) => {
     }
   });
 });
+
+/**
+ * Layering guard.
+ *
+ * The docs page is a client component and reads the capability matrix. When that
+ * path went through registry.ts it dragged BaseProvider — and ioredis, with its
+ * Node-only imports — into the browser bundle and broke the build. Data and
+ * implementation must stay separable.
+ */
+describe('manifest/registry layering', () => {
+  it('keeps the registry and the manifest list in agreement', async () => {
+    const { assertRegistryMatchesManifests } = await import('@/lib/providers/core/registry');
+    expect(() => assertRegistryMatchesManifests()).not.toThrow();
+  });
+
+  it('exposes the same providers through both entry points', async () => {
+    const { listManifests: fromManifests } = await import('@/lib/providers/core/manifests');
+    const { PROVIDERS } = await import('@/lib/providers/core/registry');
+
+    expect(fromManifests().map((m) => m.slug).sort()).toEqual(Object.keys(PROVIDERS).sort());
+  });
+
+  it('manifests.ts does not reach into provider implementations', async () => {
+    const { readFileSync } = await import('fs');
+    // Only the import statements matter; prose in the comments may name them.
+    const imports = readFileSync('src/lib/providers/core/manifests.ts', 'utf8')
+      .split('\n')
+      .filter((line) => line.trimStart().startsWith('import'));
+
+    for (const line of imports) {
+      expect(line, `manifests.ts must not import implementation code: ${line}`).not.toMatch(
+        /\/provider'|BaseProvider|\/registry'/
+      );
+    }
+    // It must still import the manifests themselves.
+    expect(imports.some((l) => l.includes('/manifest'))).toBe(true);
+  });
+
+  it('the OpenAPI spec reads manifests, not the registry', async () => {
+    const { readFileSync } = await import('fs');
+    const source = readFileSync('src/lib/openapi.ts', 'utf8');
+
+    // openapi.ts is pulled in by the client-side docs page.
+    expect(source).not.toMatch(/providers\/core\/registry/);
+  });
+});

@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma'
 import { ConnectErpDialog } from './components/ConnectErpDialog'
 import { CopyTokenButton } from './components/CopyTokenButton'
 import { TestApiDialog } from './components/TestApiDialog'
-import { listManifests } from '@/lib/providers/core/registry'
+import { listManifests } from '@/lib/providers/core/manifests'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.

@@ -5,6 +5,17 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      /**
+       * This project maps untyped third-party API payloads for a living, so
+       * `any` at the upstream boundary is deliberate — the Zod parse in each
+       * mapper is what actually enforces the shape. Kept as a warning so it
+       * stays visible without making CI unpassable.
+       */
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

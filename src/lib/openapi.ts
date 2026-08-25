@@ -8,7 +8,7 @@ import {
   UnifiedSellerSchema,
   UnifiedUnitSchema,
 } from './validations/unified-schemas';
-import { listManifests } from './providers/core/registry';
+import { listManifests } from './providers/core/manifests';
 import type { CapabilityMap, Operation, ResourceName } from './providers/core/types';
 
 /**
