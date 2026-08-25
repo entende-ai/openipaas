@@ -1,4 +1,4 @@
-import { ContaAzulCustomer, ContaAzulPersonType } from "@/types/contaazul";
+import { ContaAzulCustomer, ContaAzulPersonType } from "../types/customers";
 import { UnifiedCustomer, UnifiedPersonType } from "@/types/unified";
 import { UnifiedCustomerSchema } from "@/lib/validations/unified-schemas";
 
