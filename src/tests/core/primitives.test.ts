@@ -49,29 +49,29 @@ describe('api rate limiter', () => {
   beforeEach(() => __resetApiRateLimiter());
   afterEach(() => __resetApiRateLimiter());
 
-  it('allows up to the limit then rejects', () => {
+  it('allows up to the limit then rejects', async () => {
     const clock = 1_000;
     setApiClock(() => clock);
 
-    expect(consume('c1', 3, 60_000).allowed).toBe(true);
-    expect(consume('c1', 3, 60_000).allowed).toBe(true);
-    expect(consume('c1', 3, 60_000).allowed).toBe(true);
+    expect((await consume('c1', 3, 60_000)).allowed).toBe(true);
+    expect((await consume('c1', 3, 60_000)).allowed).toBe(true);
+    expect((await consume('c1', 3, 60_000)).allowed).toBe(true);
 
-    const denied = consume('c1', 3, 60_000);
+    const denied = await consume('c1', 3, 60_000);
     expect(denied.allowed).toBe(false);
     expect(denied.remaining).toBe(0);
     expect(denied.retryAfterSeconds).toBeGreaterThan(0);
   });
 
-  it('resets after the window elapses', () => {
+  it('resets after the window elapses', async () => {
     let clock = 1_000;
     setApiClock(() => clock);
 
-    consume('c2', 1, 60_000);
-    expect(consume('c2', 1, 60_000).allowed).toBe(false);
+    await consume('c2', 1, 60_000);
+    expect((await consume('c2', 1, 60_000)).allowed).toBe(false);
 
     clock += 60_001;
-    expect(consume('c2', 1, 60_000).allowed).toBe(true);
+    expect((await consume('c2', 1, 60_000)).allowed).toBe(true);
   });
 });
 

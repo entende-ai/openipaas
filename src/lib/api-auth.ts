@@ -150,7 +150,7 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
 
       /* -------------------------------------------------- 2. rate limit */
 
-      const verdict = consume(`client:${apiKeyRecord.clientId}`, DEFAULT_LIMIT, DEFAULT_WINDOW_MS);
+      const verdict = await consume(`client:${apiKeyRecord.clientId}`, DEFAULT_LIMIT, DEFAULT_WINDOW_MS);
       if (!verdict.allowed) {
         return finish(
           NextResponse.json(
