@@ -1,28 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { unifiedErpRequestWithRetry } from '@/lib/unified-api-utils'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function connectedAccountHandler(req: NextRequest, authContext: UnifiedAuthContext) {
-  const { linkedAccount, credential } = authContext
-
-  try {
-    switch (linkedAccount.provider) {
-      case 'CONTA_AZUL':
-        const data = await unifiedErpRequestWithRetry(
-          'CONTA_AZUL',
-          credential.id,
-          credential.accessToken,
-          'GET',
-          '/pessoas/conta-conectada',
-          null
-        )
-        return NextResponse.json(data)
-      default:
-        return NextResponse.json({ error: 'Provider not supported' }, { status: 400 })
-    }
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+async function handler(_req: NextRequest, auth: UnifiedAuthContext) {
+  const get = callable(auth.provider, 'getConnectedAccount', 'reading the connected account')
+  return ok(await get(auth.credentials))
 }
 
-export const GET = withUnifiedAuth(connectedAccountHandler)
+export const GET = withUnifiedAuth(handler)

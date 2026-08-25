@@ -1,57 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { unifiedErpRequestWithRetry } from '@/lib/unified-api-utils'
-import { mapContaAzulProductToUnified, mapUnifiedToContaAzulProductPatch } from '@/lib/mappers/products'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function productIdHandler(
-  req: NextRequest, 
-  authContext: UnifiedAuthContext,
-  { params }: { params: { id: string } }
-) {
-  const { linkedAccount, credential } = authContext
-  const { id } = params
-  const method = req.method
+type Ctx = { params: Promise<{ id: string }> }
 
-  let body = null
-  if (['PUT', 'PATCH'].includes(method)) {
-    try { 
-      const rawBody = await req.json() 
-      if (method === 'PATCH' && linkedAccount.provider === 'CONTA_AZUL') {
-        body = mapUnifiedToContaAzulProductPatch(rawBody)
-      } else {
-        body = rawBody
-      }
-    } catch (e) { 
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-    }
-  }
-
-  try {
-    switch (linkedAccount.provider) {
-      case 'CONTA_AZUL':
-        const data = await unifiedErpRequestWithRetry(
-          'CONTA_AZUL',
-          credential.id,
-          credential.accessToken,
-          method,
-          `/produtos/${id}`,
-          body
-        )
-
-        if (method === 'GET') {
-          return NextResponse.json(mapContaAzulProductToUnified(data))
-        }
-
-        return NextResponse.json(data)
-      default:
-        return NextResponse.json({ error: 'Provider not supported' }, { status: 400 })
-    }
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+async function getHandler(_req: NextRequest, auth: UnifiedAuthContext, ctx: Ctx) {
+  const { id } = await ctx.params
+  const get = callable(auth.provider, 'getProduct', 'fetching a product')
+  return ok(await get(auth.credentials, id))
 }
 
-export const GET = withUnifiedAuth(productIdHandler)
-export const PUT = withUnifiedAuth(productIdHandler)
-export const PATCH = withUnifiedAuth(productIdHandler)
-export const DELETE = withUnifiedAuth(productIdHandler)
+async function updateHandler(_req: NextRequest, auth: UnifiedAuthContext, ctx: Ctx) {
+  const { id } = await ctx.params
+  const update = callable(auth.provider, 'updateProduct', 'updating products')
+  return ok(await update(auth.credentials, id, auth.body))
+}
+
+async function deleteHandler(_req: NextRequest, auth: UnifiedAuthContext, ctx: Ctx) {
+  const { id } = await ctx.params
+  const remove = callable(auth.provider, 'deleteProduct', 'deleting products')
+  await remove(auth.credentials, id)
+  return ok({ deleted: true, id })
+}
+
+export const GET = withUnifiedAuth(getHandler)
+export const PUT = withUnifiedAuth(updateHandler)
+export const PATCH = withUnifiedAuth(updateHandler)
+export const DELETE = withUnifiedAuth(deleteHandler)

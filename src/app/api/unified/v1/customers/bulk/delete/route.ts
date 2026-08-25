@@ -1,28 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { unifiedErpRequestWithRetry } from '@/lib/unified-api-utils'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function bulkDeleteHandler(req: NextRequest, authContext: UnifiedAuthContext) {
-  const { linkedAccount, credential } = authContext
-  try {
-    const body = await req.json()
-    switch (linkedAccount.provider) {
-      case 'CONTA_AZUL':
-        const data = await unifiedErpRequestWithRetry(
-          'CONTA_AZUL',
-          credential.id,
-          credential.accessToken,
-          'POST',
-          '/pessoas/excluir',
-          body
-        )
-        return NextResponse.json(data)
-      default:
-        return NextResponse.json({ error: 'Provider not supported' }, { status: 400 })
-    }
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+async function handler(_req: NextRequest, auth: UnifiedAuthContext) {
+  const run = callable(auth.provider, 'bulkDeleteCustomers', 'bulk delete of customers')
+  return ok(await run(auth.credentials, auth.body?.ids))
 }
 
-export const POST = withUnifiedAuth(bulkDeleteHandler)
+export const POST = withUnifiedAuth(handler)

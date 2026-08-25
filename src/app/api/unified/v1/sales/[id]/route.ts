@@ -1,24 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { ProviderFactory } from '@/lib/providers/ProviderFactory'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function saleDetailHandler(
-  req: NextRequest, 
-  authContext: UnifiedAuthContext,
-  { params }: { params: { id: string } }
+async function handler(
+  _req: NextRequest,
+  auth: UnifiedAuthContext,
+  ctx: { params: Promise<{ id: string }> }
 ) {
-  const { linkedAccount, credential } = authContext
-  const id = params.id
-
-  try {
-    const provider = ProviderFactory.getProvider(linkedAccount.provider)
-    const data = await provider.getSaleDetail(credential, id)
-    return NextResponse.json(data)
-
-  } catch (error: any) {
-    console.error('[Sale Detail API Error]', error)
-    return NextResponse.json({ error: error.message || 'Error fetching sale details' }, { status: 500 })
-  }
+  const { id } = await ctx.params
+  const get = callable(auth.provider, 'getSale', 'fetching a sale')
+  return ok(await get(auth.credentials, id))
 }
 
-export const GET = withUnifiedAuth(saleDetailHandler as any)
+export const GET = withUnifiedAuth(handler)

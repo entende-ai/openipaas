@@ -1,31 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { ProviderFactory } from '@/lib/providers/ProviderFactory'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function customersHandler(req: NextRequest, authContext: UnifiedAuthContext) {
-  const { linkedAccount, credential } = authContext
-  const method = req.method
-  
-  const url = new URL(req.url)
-  const queryParams = Object.fromEntries(url.searchParams.entries())
-
-  try {
-    const provider = ProviderFactory.getProvider(linkedAccount.provider)
-
-    if (method === 'GET') {
-      const data = await provider.listCustomers(credential, queryParams)
-      return NextResponse.json(data)
-    }
-
-    // For POST/PUT/PATCH, we haven't implemented standard provider methods yet, 
-    // but the architecture is ready to receive them.
-    return NextResponse.json({ error: 'Method not implemented in provider plugin' }, { status: 501 })
-
-  } catch (error: any) {
-    console.error('[Unified Customers API Error]', error)
-    return NextResponse.json({ error: error.message || 'Error processing customers request' }, { status: 500 })
-  }
+async function listHandler(_req: NextRequest, auth: UnifiedAuthContext) {
+  const list = callable(auth.provider, 'listCustomers', 'listing customers')
+  return ok(await list(auth.credentials, auth.params))
 }
 
-export const GET = withUnifiedAuth(customersHandler)
-export const POST = withUnifiedAuth(customersHandler)
+async function createHandler(_req: NextRequest, auth: UnifiedAuthContext) {
+  const create = callable(auth.provider, 'createCustomer', 'creating customers')
+  return ok(await create(auth.credentials, auth.body), 201)
+}
+
+export const GET = withUnifiedAuth(listHandler)
+export const POST = withUnifiedAuth(createHandler)
