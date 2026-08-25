@@ -5,6 +5,11 @@ import prisma from '@/lib/prisma'
 import { ConnectErpDialog } from './components/ConnectErpDialog'
 import { CopyTokenButton } from './components/CopyTokenButton'
 import { TestApiDialog } from './components/TestApiDialog'
+import { listManifests } from '@/lib/providers/core/registry'
+
+// Reads live data behind an authenticated session, so it must never be
+// prerendered at build time.
+export const dynamic = 'force-dynamic'
 
 export default async function LinkedAccountsPage() {
   const accounts = await prisma.linkedAccount.findMany({
@@ -18,6 +23,16 @@ export default async function LinkedAccountsPage() {
     orderBy: { name: 'asc' }
   })
 
+  // The connect dialog renders itself from the manifests, so a new provider
+  // shows up here with no UI change.
+  const providers = listManifests().map((m) => ({
+    slug: m.slug,
+    name: m.name,
+    authType: m.auth.type,
+    enabled: m.enabled,
+    fields: m.auth.type === 'OAUTH2' ? [] : m.auth.fields.map((f) => ({ ...f })),
+  }))
+
   return (
     <div className="space-y-4 max-w-6xl w-full mx-auto">
       <div className="flex justify-between items-center">
@@ -25,7 +40,7 @@ export default async function LinkedAccountsPage() {
           <h2 className="text-2xl font-bold tracking-tight">Linked Accounts</h2>
           <p className="text-muted-foreground">End-user ERP integrations connected via OAuth.</p>
         </div>
-        <ConnectErpDialog clients={clients} />
+        <ConnectErpDialog clients={clients} providers={providers} />
       </div>
 
       <Card>

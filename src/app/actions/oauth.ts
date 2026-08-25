@@ -1,10 +1,27 @@
 "use server"
 
-export async function getContaAzulAuthUrl(clientId: string) {
-  const contaAzulClientId = process.env.CONTA_AZUL_CLIENT_ID || process.env.NEXT_PUBLIC_CONTA_AZUL_CLIENT_ID;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
-  const redirectUri = `${appUrl}/api/oauth/callback/conta-azul`;
+import { beginOAuthFlow } from '@/lib/oauth'
+import { requireDashboardSession } from '@/lib/auth-session'
+import { isProviderError } from '@/lib/providers/core/errors'
 
-  return `https://auth.contaazul.com/login?response_type=code&client_id=${contaAzulClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${clientId}&scope=openid+profile+aws.cognito.signin.user.admin`;
+/**
+ * Starts an OAuth connection for any registry provider.
+ *
+ * Replaces the previous Conta Azul-specific URL builder: the manifest supplies
+ * the authorization endpoint and scopes, and the state is now a single-use
+ * server-side value instead of the raw client id.
+ */
+export async function getProviderAuthUrl(providerSlug: string, clientId: string) {
+  await requireDashboardSession()
+
+  try {
+    const { authorizationUrl } = await beginOAuthFlow({ providerSlug, clientId })
+    return { success: true as const, url: authorizationUrl }
+  } catch (error) {
+    console.error('[OAuth] could not start the flow:', error)
+    return {
+      success: false as const,
+      error: isProviderError(error) ? error.publicMessage : 'Could not start the connection.',
+    }
+  }
 }
-
