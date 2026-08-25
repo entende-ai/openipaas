@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import caMock from '../mocks/contaazul-customer.json';
 import omieMock from '../mocks/omie-customer.json';
-import { mapContaAzulCustomerToUnified } from '@/lib/mappers/contaazul';
-import { mapOmieCustomerToUnified } from '@/lib/mappers/omie-customers';
+import { mapContaAzulCustomerToUnified } from '@/lib/providers/implementations/contaazul/mappers/customers';
+import { mapOmieCustomerToUnified } from '@/lib/providers/implementations/omie/mappers/customers';
 import { UnifiedCustomerSchema } from '@/lib/validations/unified-schemas';
 
 describe('Customer Mappers', () => {
