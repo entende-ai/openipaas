@@ -1,41 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { ProviderFactory } from '@/lib/providers/ProviderFactory'
+import { callable } from '@/lib/route-helpers'
 
-async function salePdfHandler(
-  req: NextRequest, 
-  authContext: UnifiedAuthContext,
-  { params }: { params: { id: string } }
+/**
+ * Binary endpoint: bypasses the JSON helper but still goes through the provider,
+ * so it inherits rate limiting, retries and refresh-and-replay on 401.
+ */
+async function handler(
+  _req: NextRequest,
+  auth: UnifiedAuthContext,
+  ctx: { params: Promise<{ id: string }> }
 ) {
-  const { linkedAccount, credential } = authContext
-  const id = params.id
+  const { id } = await ctx.params
+  const getPdf = callable<(c: unknown, id: string) => Promise<ArrayBuffer>>(
+    auth.provider,
+    'getSalePdf',
+    'downloading a sale PDF'
+  )
 
-  try {
-    const provider = ProviderFactory.getProvider(linkedAccount.provider)
-    
-    try {
-      const buffer = await provider.getSalePdf(credential, id)
-      return new NextResponse(new Uint8Array(buffer), {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="venda_${id}.pdf"`
-        }
-      })
-    } catch (err: any) {
-      if (err.message === 'PDF_REFRESH_NEEDED') {
-        // Here we would ideally trigger a refresh and retry, 
-        // but for now we follow the existing pattern of reporting error.
-        // In the route, it was using unifiedErpRequestWithRetry but that was for JSON.
-        // The original route had special logic for PDF.
-        throw err;
-      }
-      throw err;
-    }
+  const buffer = await getPdf(auth.credentials, id)
 
-  } catch (error: any) {
-    console.error('[Sale PDF API Error]', error)
-    return NextResponse.json({ error: error.message || 'Error downloading PDF' }, { status: 500 })
-  }
+  return new NextResponse(new Uint8Array(buffer), {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="sale_${encodeURIComponent(id)}.pdf"`,
+    },
+  })
 }
 
-export const GET = withUnifiedAuth(salePdfHandler as any)
+export const GET = withUnifiedAuth(handler)

@@ -5,7 +5,7 @@ import {
   CACriacaoVendaRequest,
   CAItem,
   CAParcelaNegociacao
-} from "@/types/contaazul_sales";
+} from "../types/sales";
 import { 
   UnifiedSale, 
   UnifiedSaleStatus, 

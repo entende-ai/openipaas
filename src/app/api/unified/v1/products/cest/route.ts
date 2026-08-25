@@ -1,33 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { unifiedErpRequestWithRetry } from '@/lib/unified-api-utils'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function cestHandler(req: NextRequest, authContext: UnifiedAuthContext) {
-  const { linkedAccount, credential } = authContext
-  const url = new URL(req.url)
-  const searchParams = new URLSearchParams()
-  if (url.searchParams.get('search')) searchParams.append('busca_textual', url.searchParams.get('search')!)
-
-  const path = `/produtos/cest${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
-
-  try {
-    switch (linkedAccount.provider) {
-      case 'CONTA_AZUL':
-        const data = await unifiedErpRequestWithRetry(
-          'CONTA_AZUL',
-          credential.id,
-          credential.accessToken,
-          'GET',
-          path,
-          null
-        )
-        return NextResponse.json(data)
-      default:
-        return NextResponse.json({ error: 'Provider not supported' }, { status: 400 })
-    }
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+async function handler(_req: NextRequest, auth: UnifiedAuthContext) {
+  const list = callable(auth.provider, 'listCest', 'listing CEST codes')
+  return ok(await list(auth.credentials, auth.params))
 }
 
-export const GET = withUnifiedAuth(cestHandler)
+export const GET = withUnifiedAuth(handler)

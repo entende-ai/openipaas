@@ -1,20 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { ProviderFactory } from '@/lib/providers/ProviderFactory'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function bulkDeleteSalesHandler(req: NextRequest, authContext: UnifiedAuthContext) {
-  const { linkedAccount, credential } = authContext
-  try {
-    const { ids } = await req.json()
-    const provider = ProviderFactory.getProvider(linkedAccount.provider)
-    const result = await provider.bulkDeleteSales(credential, ids)
-    return NextResponse.json(result)
-
-  } catch (error: any) {
-    console.error('[Sales Bulk Delete API Error]', error)
-    return NextResponse.json({ error: error.message || 'Error in bulk delete' }, { status: 500 })
-  }
+async function handler(_req: NextRequest, auth: UnifiedAuthContext) {
+  const run = callable(auth.provider, 'bulkDeleteSales', 'bulk deletion of sales')
+  return ok(await run(auth.credentials, auth.body?.ids))
 }
 
-export const DELETE = withUnifiedAuth(bulkDeleteSalesHandler)
-export const POST = withUnifiedAuth(bulkDeleteSalesHandler)
+export const POST = withUnifiedAuth(handler)
+export const DELETE = withUnifiedAuth(handler)

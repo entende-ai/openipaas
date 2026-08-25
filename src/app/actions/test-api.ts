@@ -1,55 +1,68 @@
 "use server"
 
 import prisma from '@/lib/prisma'
+import { pickActiveCredential, toProviderContext } from '@/lib/credentials'
+import { createProvider, getManifest, isKnownProvider } from '@/lib/providers/core/registry'
+import { refreshCredential } from '@/lib/token-refresh'
+import { isProviderError } from '@/lib/providers/core/errors'
+import { requireDashboardSession } from '@/lib/auth-session'
 
+/**
+ * Live connectivity check for a connected account.
+ *
+ * Calls the provider directly rather than looping back through our own HTTP API:
+ * API keys are stored hashed and cannot be read back, and this isolates the
+ * provider/credential path from the auth layer when diagnosing a failure.
+ */
 export async function testUnifiedApi(linkedAccountId: string) {
+  await requireDashboardSession()
+
   try {
-    // 1. Get the LinkedAccount and its associated Client
     const linkedAccount = await prisma.linkedAccount.findUnique({
       where: { id: linkedAccountId },
-      include: { client: true }
+      include: { credentials: true },
     })
 
-    if (!linkedAccount) {
-      throw new Error("LinkedAccount not found")
+    if (!linkedAccount) throw new Error('Linked account not found.')
+    if (!isKnownProvider(linkedAccount.provider)) {
+      throw new Error(`Provider ${linkedAccount.provider} is not in the registry.`)
     }
 
-    // 2. Get a valid ApiKey for this Client
-    const apiKey = await prisma.apiKey.findFirst({
-      where: {
-        clientId: linkedAccount.clientId
-      }
-    })
+    const credential = pickActiveCredential(linkedAccount.credentials)
+    if (!credential) throw new Error('This account has no stored credential. Reconnect it.')
 
-    if (!apiKey) {
-      throw new Error("No active API Key found for this Client. Please generate one in the Clients tab.")
+    const manifest = getManifest(linkedAccount.provider)
+    if (!manifest.capabilities.customers?.includes('list')) {
+      return {
+        success: false,
+        status: 501,
+        error: `${manifest.name} does not support listing customers yet.`,
+      }
     }
 
-    // 3. Prepare the fetch to our Unified API
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').trim()
-    const unifiedEndpoint = `${appUrl}/api/unified/v1/customers`
+    const provider = createProvider(linkedAccount.provider, { refreshCredential })
+    const ctx = toProviderContext(credential, linkedAccount.provider)
 
-    const response = await fetch(unifiedEndpoint, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${apiKey.key}`,
-        "X-Account-Token": linkedAccount.accountToken,
-        "Content-Type": "application/json"
-      }
-    })
-
-    const data = await response.json()
+    const startedAt = Date.now()
+    const page = await (provider as any).listCustomers(ctx, { limit: 3 })
 
     return {
-      success: response.ok,
-      status: response.status,
-      data
+      success: true,
+      status: 200,
+      latencyMs: Date.now() - startedAt,
+      data: {
+        provider: manifest.name,
+        totalItems: page.totalItems,
+        hasMore: page.hasMore,
+        sample: page.items.slice(0, 3),
+      },
     }
   } catch (error: any) {
-    console.error("Test API Action Error:", error)
+    console.error('[TestApi] failed:', error)
     return {
       success: false,
-      error: error.message || "An unexpected error occurred"
+      status: isProviderError(error) ? error.status : 500,
+      error: isProviderError(error) ? error.publicMessage : error?.message || 'Unexpected error',
     }
   }
 }

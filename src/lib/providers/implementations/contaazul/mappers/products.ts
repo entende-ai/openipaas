@@ -5,7 +5,7 @@ import {
   ContaAzulCategory, 
   ContaAzulBrand, 
   ContaAzulUnit 
-} from "@/types/contaazul_products";
+} from "../types/products";
 import { 
   UnifiedProduct, 
   UnifiedCategory, 

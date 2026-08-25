@@ -16,42 +16,162 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  apiKeys        ApiKey[]
-  linkedAccounts LinkedAccount[]
+  apiKeys          ApiKey[]
+  linkedAccounts   LinkedAccount[]
+  requestLogs      RequestLog[]
+  idempotencyKeys  IdempotencyKey[]
+  webhookEndpoints WebhookEndpoint[]
 }
 
 model ApiKey {
-  id        String   @id @default(uuid())
-  key       String   @unique // The Bearer token our clients will use
+  id        String    @id @default(uuid())
+  // SHA-256 of the key. The plaintext is shown once, at creation, and never stored.
+  keyHash   String?   @unique
+  // Leading characters kept in the clear so the dashboard can identify a key.
+  keyPrefix String?
+  name      String?
+  // Legacy plaintext column, kept until every row is migrated to keyHash.
+  key       String?   @unique
   clientId  String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   expiresAt DateTime?
+  lastUsedAt DateTime?
+  revokedAt DateTime?
 
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }
 
 model LinkedAccount {
   id           String   @id @default(uuid())
   clientId     String
-  provider     String   // e.g., 'CONTA_AZUL', 'OMIE'
+  provider     String // registry slug, e.g. 'CONTA_AZUL', 'OMIE'
   accountToken String   @unique @default(uuid()) // The X-Account-Token
+  label        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  credentials  OAuthCredential[]
+  client      Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  credentials OAuthCredential[]
+
+  @@index([clientId, provider])
 }
 
 model OAuthCredential {
-  id              String   @id @default(uuid())
+  id              String  @id @default(uuid())
   linkedAccountId String
+  // All four hold AES-256-GCM ciphertext once CREDENTIALS_ENCRYPTION_KEY is set.
   accessToken     String
   refreshToken    String?
-  erpClientId     String?  // client_id for the target ERP
-  erpClientSecret String?  // client_secret for the target ERP
-  expiresAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  erpClientId     String?
+  erpClientSecret String?
 
-  linkedAccount   LinkedAccount @relation(fields: [linkedAccountId], references: [id], onDelete: Cascade)
+  // Which auth scheme this credential represents, mirroring the manifest.
+  authType String @default("OAUTH2")
+  // Encrypted JSON bag for provider-specific fields (appKey, appSecret, ...).
+  secrets  String?
+  // Per-tenant host (Salesforce instance_url, Shopify shop domain).
+  instanceUrl String?
+  // Per-tenant path segment (Nuvemshop store id).
+  externalTenantId String?
+
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  linkedAccount LinkedAccount @relation(fields: [linkedAccountId], references: [id], onDelete: Cascade)
+
+  @@index([linkedAccountId])
+}
+
+/// One row per unified API call. Powers the logs dashboard, debugging and usage metering.
+model RequestLog {
+  id              String   @id @default(uuid())
+  requestId       String
+  clientId        String?
+  linkedAccountId String?
+  provider        String?
+  method          String
+  path            String
+  status          Int
+  latencyMs       Int
+  errorCode       String?
+  createdAt       DateTime @default(now())
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, createdAt])
+  @@index([createdAt])
+}
+
+/// Replays the stored response when a client retries a write with the same key.
+model IdempotencyKey {
+  id           String   @id @default(uuid())
+  clientId     String
+  key          String
+  endpoint     String
+  // Hash of the request body, so the same key with a different payload is rejected.
+  requestHash  String
+  status       Int
+  responseBody Json?
+  createdAt    DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, key])
+  @@index([createdAt])
+}
+
+/// Short-lived, single-use OAuth state. Blocks CSRF on the connect callback.
+model OAuthState {
+  id           String    @id @default(uuid())
+  state        String    @unique
+  clientId     String
+  provider     String
+  redirectUri  String
+  // PKCE verifier for providers that support it.
+  codeVerifier String?
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(uuid())
+  clientId  String
+  url       String
+  /// Encrypted; used to sign outbound deliveries.
+  secret    String
+  events    String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([clientId])
+}
+
+model WebhookDelivery {
+  id             String    @id @default(uuid())
+  endpointId     String
+  eventType      String
+  payload        Json
+  /// PENDING | DELIVERED | FAILED
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  responseStatus Int?
+  lastError      String?
+  lastAttemptAt  DateTime?
+  nextAttemptAt  DateTime?
+  createdAt      DateTime  @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
 }

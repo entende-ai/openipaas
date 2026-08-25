@@ -1,70 +1,96 @@
-"use client"
-
-import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { listRecentRequests, requestStats } from '@/lib/request-log'
 
-export default function LogsPage() {
-  const [logs, setLogs] = useState<any[]>([])
+// Logs are written on every request, so this page must not be cached.
+export const dynamic = 'force-dynamic'
 
-  useEffect(() => {
-    // Generate mock logs
-    const mockLogs = Array.from({ length: 15 }).map((_, i) => ({
-      id: `log-${i}`,
-      timestamp: new Date(Date.now() - Math.floor(Math.random() * 10000000)).toISOString(),
-      client: ['Acme Corp', 'Globex Inc', 'Initech'][Math.floor(Math.random() * 3)],
-      endpoint: '/api/unified/v1/customers',
-      status: Math.random() > 0.8 ? 401 : 200,
-      latency: Math.floor(Math.random() * 800) + 50
-    })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    
-    setLogs(mockLogs)
-  }, [])
+function statusVariant(status: number): 'default' | 'secondary' | 'destructive' {
+  if (status >= 500) return 'destructive'
+  if (status >= 400) return 'secondary'
+  return 'default'
+}
+
+export default async function LogsPage() {
+  const [logs, stats] = await Promise.all([listRecentRequests({ limit: 100 }), requestStats()])
 
   return (
     <div className="space-y-4 max-w-6xl w-full mx-auto">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">API Logs</h2>
-        <p className="text-muted-foreground">Real-time mock traffic monitoring.</p>
+        <p className="text-muted-foreground">Every unified API call, as it happened.</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Requests (24h)</CardDescription>
+            <CardTitle className="text-3xl">{stats.total.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Success rate (24h)</CardDescription>
+            <CardTitle className="text-3xl">{(stats.successRate * 100).toFixed(1)}%</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Avg latency (24h)</CardDescription>
+            <CardTitle className="text-3xl">{stats.avgLatencyMs}ms</CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Requests</CardTitle>
-          <CardDescription>Showing the latest API calls across all connected clients.</CardDescription>
+          <CardTitle>Recent requests</CardTitle>
+          <CardDescription>Newest first. Share the request id when reporting an issue.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Endpoint</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Latency</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="font-medium">{log.client}</TableCell>
-                  <TableCell className="font-mono text-xs">{log.endpoint}</TableCell>
-                  <TableCell>
-                    <Badge variant={log.status === 200 ? 'default' : 'destructive'}>
-                      {log.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs">
-                    {log.latency}ms
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Endpoint</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Latency</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {logs.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      No requests recorded yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {logs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="text-muted-foreground whitespace-nowrap">
+                      {log.createdAt.toISOString().replace('T', ' ').slice(0, 19)}
+                    </TableCell>
+                    <TableCell>{log.client?.name ?? '—'}</TableCell>
+                    <TableCell>{log.provider ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {log.method} {log.path}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant(log.status)}>
+                        {log.status}
+                        {log.errorCode ? ` ${log.errorCode}` : ''}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{log.latencyMs}ms</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

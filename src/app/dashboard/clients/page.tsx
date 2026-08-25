@@ -5,6 +5,10 @@ import prisma from '@/lib/prisma'
 import { CreateClientDialog } from './components/CreateClientDialog'
 import { GenerateKeyButton } from './components/GenerateKeyButton'
 
+// Reads live data behind an authenticated session, so it must never be
+// prerendered at build time.
+export const dynamic = 'force-dynamic'
+
 export default async function ClientsPage() {
   const clients = await prisma.client.findMany({
     include: { apiKeys: true },
@@ -46,13 +50,18 @@ export default async function ClientsPage() {
                 </TableRow>
               )}
               {clients.map((client) => {
-                const activeKey = client.apiKeys[client.apiKeys.length - 1]
+                // Keys are stored hashed, so only the prefix can ever be displayed.
+                const activeKey = client.apiKeys.filter((k) => !k.revokedAt).at(-1)
                 
                 return (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {activeKey ? activeKey.key : <span className="text-muted-foreground italic">No key generated</span>}
+                      {activeKey ? (
+                        `${activeKey.keyPrefix ?? 'oip_live'}${'…'}`
+                      ) : (
+                        <span className="text-muted-foreground italic">No key generated</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={activeKey ? 'default' : 'secondary'}>

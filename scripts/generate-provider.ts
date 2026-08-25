@@ -1,95 +1,184 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const providerName = process.argv[2];
+/**
+ * Scaffolds a new integration.
+ *
+ * Emits a complete provider folder — manifest, provider class, mappers stub and
+ * tests — plus the single registry line to add. The generated provider passes
+ * the contract suite immediately: it declares no capabilities and enables
+ * passthrough, so it is honest about what it can do from day one.
+ */
 
-if (!providerName) {
-  console.error('❌ Please provide a provider name. Usage: npm run generate-provider <name>');
+const rawName = process.argv[2];
+
+if (!rawName) {
+  console.error('❌ Usage: npm run generate-provider <name>   (e.g. bling, nuvemshop)');
   process.exit(1);
 }
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-const lowercase = (s: string) => s.toLowerCase();
+const dirName = rawName.toLowerCase().replace(/[^a-z0-9]/g, '');
+const slug = rawName.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+const className = dirName.charAt(0).toUpperCase() + dirName.slice(1);
+const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
-const capitalizedName = capitalize(providerName);
-const lowerName = lowercase(providerName);
+const providerDir = path.join(process.cwd(), 'src', 'lib', 'providers', 'implementations', dirName);
 
-const providerTemplate = `import { IUnifiedProvider } from "../IProvider";
-import { 
-  UnifiedCustomer, 
-  UnifiedProduct, 
-  UnifiedSale, 
-  UnifiedSeller,
-  UnifiedListResponse
-} from "@/types/unified";
+if (fs.existsSync(providerDir)) {
+  console.error(`❌ ${providerDir} already exists.`);
+  process.exit(1);
+}
+
+const manifest = `import type { ProviderManifest } from '@/lib/providers/core/types';
+
+export const ${dirName}Manifest: ProviderManifest = {
+  slug: '${slug}',
+  name: '${displayName}',
+  category: 'ACCOUNTING', // ACCOUNTING | ECOMMERCE | CRM | PAYMENTS | FISCAL | HRIS
+  description: 'TODO: one line describing what ${displayName} does.',
+  logo: '/logos/${dirName}.svg',
+  docsUrl: 'https://example.com/docs',
+  // No trailing slash: request paths are appended directly.
+  baseUrl: 'https://api.${dirName}.com/v1',
+
+  auth: {
+    type: 'OAUTH2',
+    authorizationUrl: 'https://example.com/oauth/authorize',
+    tokenUrl: 'https://example.com/oauth/token',
+    scopes: ['read', 'write'],
+    tokenEndpointAuth: 'body', // 'basic' if client credentials go in the header
+  },
+
+  // Throttle ourselves to whatever the upstream documents.
+  rateLimit: { requestsPerSecond: 2, burst: 2 },
+
+  /**
+   * Declare an operation only once the matching method exists — the contract
+   * suite fails if the two disagree, in either direction.
+   */
+  capabilities: {},
+
+  passthrough: true,
+  enabled: false, // flip to true once real capabilities ship
+};
+`;
+
+const provider = `import { BaseProvider } from '@/lib/providers/core/BaseProvider';
+import { readPage, nextPageCursor } from '@/lib/providers/core/pagination';
+import type {
+  ListParams,
+  Page,
+  ProviderContext,
+  ProviderManifest,
+} from '@/lib/providers/core/types';
+import type { UnifiedCustomer } from '@/types/unified';
+
+import { ${dirName}Manifest } from './manifest';
+// import { map${className}CustomerToUnified } from './mappers/customers';
 
 /**
- * ${capitalizedName} Provider Implementation
- * Created via CLI
+ * ${displayName} provider.
+ *
+ * BaseProvider already handles URL building, rate limiting, retry with backoff,
+ * refresh-and-replay on 401 and passthrough. Implement mappers and endpoint
+ * paths here, and declare each capability in the manifest as it lands.
  */
-export class ${capitalizedName}Provider implements IUnifiedProvider {
-  async listCustomers(credentials: any, params: any): Promise<UnifiedListResponse<UnifiedCustomer>> {
-    console.log('[${capitalizedName}Provider] listCustomers not yet implemented');
-    return { items: [], totalItems: 0 };
-  }
+export class ${className}Provider extends BaseProvider {
+  readonly manifest: ProviderManifest = ${dirName}Manifest;
 
-  async listProducts(credentials: any, params: any): Promise<UnifiedListResponse<UnifiedProduct>> {
-    console.log('[${capitalizedName}Provider] listProducts not yet implemented');
-    return { items: [], totalItems: 0 };
+  /* Override only if the provider does not use bearer tokens.
+  protected override authHeaders(ctx: ProviderContext): Record<string, string> {
+    return { 'X-Api-Key': ctx.accessToken };
   }
+  */
 
-  async listSales(credentials: any, params: any): Promise<UnifiedListResponse<UnifiedSale>> {
-    console.log('[${capitalizedName}Provider] listSales not yet implemented');
-    return { items: [], totalItems: 0 };
-  }
+  /* Reference implementation — uncomment, adapt, and declare
+     customers: ['list'] in the manifest.
 
-  async listSellers(credentials: any): Promise<UnifiedSeller[]> {
-    console.log('[${capitalizedName}Provider] listSellers not yet implemented');
-    return [];
-  }
+  async listCustomers(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedCustomer>> {
+    this.assertSupports('customers', 'list');
 
-  async getSaleDetail(credentials: any, id: string): Promise<UnifiedSale> {
-    throw new Error('[${capitalizedName}Provider] getSaleDetail not implemented');
-  }
+    const page = readPage(params.cursor);
+    const size = Number(params.limit) > 0 ? Number(params.limit) : 50;
 
-  async getSalePdf(credentials: any, id: string): Promise<ArrayBuffer> {
-    throw new Error('[${capitalizedName}Provider] getSalePdf not implemented');
-  }
+    const data = await this.request(ctx, {
+      method: 'GET',
+      path: '/customers',
+      query: { page, per_page: size },
+    });
 
-  async bulkDeleteSales(credentials: any, ids: string[]): Promise<{ deletedCount: number, ignoredCount: number }> {
-    throw new Error('[${capitalizedName}Provider] bulkDeleteSales not implemented');
+    const raw: any[] = data?.items ?? [];
+    return this.page(raw.map(map${className}CustomerToUnified), {
+      totalItems: data?.total,
+      nextCursor: nextPageCursor(page, raw.length, size, data?.total),
+    });
   }
+  */
 }
 `;
 
-const testTemplate = `import { describe, it, expect } from 'vitest';
-import { ${capitalizedName}Provider } from '@/lib/providers/implementations/${capitalizedName}Provider';
+const mappers = `import { UnifiedCustomerSchema } from '@/lib/validations/unified-schemas';
+import type { UnifiedCustomer } from '@/types/unified';
 
-describe('${capitalizedName}Provider', () => {
-  it('should be correctly instantiated', () => {
-    const provider = new ${capitalizedName}Provider();
-    expect(provider).toBeInstanceOf(${capitalizedName}Provider);
+/**
+ * Upstream -> unified. Always finish with a Zod parse: if ${displayName} changes
+ * its contract, this is where it must fail, not somewhere downstream.
+ */
+export function map${className}CustomerToUnified(raw: any): UnifiedCustomer {
+  return UnifiedCustomerSchema.parse({
+    id: String(raw.id),
+    name: raw.name,
+    email: raw.email ?? null,
+    document: raw.document ?? null,
+    personType: 'UNKNOWN',
+    isActive: raw.active ?? true,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at ?? null,
+    phones: raw.phone ? [raw.phone] : [],
+    remoteData: { provider: '${slug}', raw },
   });
+}
+`;
+
+const test = `import { describe, it, expect } from 'vitest';
+import { ${className}Provider } from '@/lib/providers/implementations/${dirName}/provider';
+import { makeContext, stubFetch, noSleep } from '../helpers';
+
+// The shared contract suite already checks the manifest and capability wiring.
+// Add ${displayName}-specific behaviour here: URLs, pagination, quirks.
+
+const ctx = makeContext({ provider: '${slug}' });
+
+describe('${className}Provider', () => {
+  it('is constructible', () => {
+    expect(new ${className}Provider({}).manifest.slug).toBe('${slug}');
+  });
+
+  it.todo('lists customers and maps them to the unified shape');
 });
 `;
 
-// Paths
-const providerPath = path.join(process.cwd(), 'src', 'lib', 'providers', 'implementations', `${capitalizedName}Provider.ts`);
-const testPath = path.join(process.cwd(), 'src', 'tests', 'mappers', `${lowerName}.test.ts`);
+fs.mkdirSync(path.join(providerDir, 'mappers'), { recursive: true });
+fs.writeFileSync(path.join(providerDir, 'manifest.ts'), manifest);
+fs.writeFileSync(path.join(providerDir, 'provider.ts'), provider);
+fs.writeFileSync(path.join(providerDir, 'mappers', 'customers.ts'), mappers);
 
-// Create files
-try {
-  fs.writeFileSync(providerPath, providerTemplate);
-  console.log(`✅ Created Provider: ${providerPath}`);
+const testDir = path.join(process.cwd(), 'src', 'tests', 'providers');
+fs.mkdirSync(testDir, { recursive: true });
+fs.writeFileSync(path.join(testDir, `${dirName}.test.ts`), test);
 
-  fs.writeFileSync(testPath, testTemplate);
-  console.log(`✅ Created Test: ${testPath}`);
-
-  console.log('\n---');
-  console.log(`🚀 Success! Provider ${capitalizedName} created.`);
-  console.log(`👉 Next Step: Remember to register it in 'src/lib/providers/ProviderFactory.ts'.`);
-  console.log('---\n');
-} catch (error) {
-  console.error('❌ Error generating provider:', error);
-  process.exit(1);
-}
+console.log(`✅ Created src/lib/providers/implementations/${dirName}/`);
+console.log(`   manifest.ts, provider.ts, mappers/customers.ts`);
+console.log(`✅ Created src/tests/providers/${dirName}.test.ts`);
+console.log('');
+console.log('👉 One step left — register it in src/lib/providers/core/registry.ts:');
+console.log('');
+console.log(`   import { ${dirName}Manifest } from '../implementations/${dirName}/manifest';`);
+console.log(`   import { ${className}Provider } from '../implementations/${dirName}/provider';`);
+console.log('');
+console.log('   export const PROVIDERS = {');
+console.log('     ...');
+console.log(`     [${dirName}Manifest.slug]: { manifest: ${dirName}Manifest, create: (deps) => new ${className}Provider(deps) },`);
+console.log('   }');
+console.log('');
+console.log('Then run: npx vitest run src/tests/providers/contract.test.ts');

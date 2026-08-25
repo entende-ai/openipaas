@@ -1,19 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { withUnifiedAuth, UnifiedAuthContext } from '@/lib/api-auth'
-import { ProviderFactory } from '@/lib/providers/ProviderFactory'
+import { callable, ok } from '@/lib/route-helpers'
 
-async function sellersHandler(req: NextRequest, authContext: UnifiedAuthContext) {
-  const { linkedAccount, credential } = authContext
-
-  try {
-    const provider = ProviderFactory.getProvider(linkedAccount.provider)
-    const data = await provider.listSellers(credential)
-    return NextResponse.json(data)
-
-  } catch (error: any) {
-    console.error('[Sellers API Error]', error)
-    return NextResponse.json({ error: error.message || 'Error fetching sellers' }, { status: 500 })
-  }
+async function handler(_req: NextRequest, auth: UnifiedAuthContext) {
+  const list = callable(auth.provider, 'listSellers', 'listing sellers')
+  return ok(await list(auth.credentials, auth.params))
 }
 
-export const GET = withUnifiedAuth(sellersHandler)
+export const GET = withUnifiedAuth(handler)

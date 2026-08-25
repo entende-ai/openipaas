@@ -11,9 +11,10 @@
     "test": "vitest",
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
-    "setup": "npm run db:up && sleep 5 && npx prisma migrate dev --name init && npx prisma db seed",
+    "setup": "npm run db:up && sleep 5 && npx prisma migrate deploy && npx prisma db seed",
     "dev:docker": "npm run setup && npm run dev",
-    "generate-provider": "npx tsx scripts/generate-provider.ts"
+    "generate-provider": "npx tsx scripts/generate-provider.ts",
+    "encrypt-credentials": "npx tsx scripts/encrypt-credentials.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -55,6 +56,7 @@
     "vitest": "^4.1.5"
   },
   "optionalDependencies": {
+    "@rolldown/binding-win32-x64-msvc": "1.0.0-rc.17",
     "@tailwindcss/oxide-linux-x64-gnu": "^4"
   }
 }
