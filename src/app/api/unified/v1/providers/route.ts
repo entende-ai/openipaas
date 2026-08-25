@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { listManifests } from '@/lib/providers/core/registry'
+import { listManifests } from '@/lib/providers/core/manifests'
 import type { ProviderCategory } from '@/lib/providers/core/types'
 
 const CATEGORIES: ProviderCategory[] = ['ACCOUNTING', 'ECOMMERCE', 'CRM', 'PAYMENTS', 'FISCAL', 'HRIS']
