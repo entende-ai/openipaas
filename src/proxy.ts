@@ -5,11 +5,14 @@ import { SESSION_COOKIE, verifySessionToken } from '@/lib/session-token';
 /**
  * Gates the admin dashboard behind a signed session cookie.
  *
- * Imports the Web Crypto-only token module: middleware runs in the Edge Runtime,
+ * Named `proxy` because Next.js 16 deprecated the `middleware` file convention
+ * and renamed it (see node_modules/next/dist/docs/.../proxy.md).
+ *
+ * Imports the Web Crypto-only token module: this runs in the Edge Runtime,
  * where Node built-ins are unavailable. Verification is signature-only, so it
  * costs no database round trip. Server actions re-check independently.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!pathname.startsWith('/dashboard')) {
