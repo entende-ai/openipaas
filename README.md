@@ -12,11 +12,11 @@ Enterprise-grade integrations shouldn't be locked behind closed-source paywalls.
 
 ## 💎 Why Open IpaaS?
 
-- 🌍 **English-first** — your app speaks one standardized vocabulary. The framework normalizes every upstream system underneath.
-- 🛡️ **Zod Shield** — every mapper ends in a runtime parse. If a platform changes its contract without warning, it fails at the boundary instead of corrupting your data.
-- 🔌 **Plugin architecture** — a provider is one folder plus one line in the registry. The core never changes.
-- 🔁 **Resilient by default** — per-account rate limiting, retry with exponential backoff, and refresh-and-replay on expired credentials, for every provider.
-- 🔓 **Never blocked** — `/passthrough` exposes the raw provider API with credentials handled, so a missing unified field never stops you.
+- 🌍 **English first**: your app speaks one standardized vocabulary. The framework normalizes every upstream system underneath.
+- 🛡️ **Zod Shield**: every mapper ends in a runtime parse. If a platform changes its contract without warning, it fails at the boundary instead of corrupting your data.
+- 🔌 **Plugin architecture**: a provider is one folder plus one line in the registry. The core never changes.
+- 🔁 **Resilient by default**: per account rate limiting, retry with exponential backoff, and refresh-and-replay on expired credentials, for every provider.
+- 🔓 **Never blocked**: `/passthrough` exposes the raw provider API with credentials handled, so a missing unified field never stops you.
 
 ## 🛠 Architecture
 
@@ -79,15 +79,15 @@ curl https://your-host/api/unified/v1/customers \
 { "items": [...], "hasMore": true, "nextCursor": "eyJwYWdlIjoyfQ", "totalItems": 120 }
 ```
 
-Pass `nextCursor` back as `?cursor=`. `totalItems` is best-effort — cursor-based upstreams cannot report a total.
+Pass `nextCursor` back as `?cursor=`. `totalItems` is best effort, because cursor based upstreams cannot report a total.
 
-**Idempotency** — send `Idempotency-Key` on writes. Retrying with the same key replays the original response; reusing it with a different body returns `422`.
+**Idempotency**: send `Idempotency-Key` on writes. Retrying with the same key replays the original response; reusing it with a different body returns `422`.
 
 **Errors** carry a stable `code` and a `requestId` (also in `X-Request-Id`). Upstream payloads are logged, never returned.
 
-**Capabilities** — `GET /api/unified/v1/providers` returns the catalog and the exact operation matrix. A `501 NOT_SUPPORTED` means the connected provider lacks that operation, and it is answered before any upstream call.
+**Capabilities**: `GET /api/unified/v1/providers` returns the catalog and the exact operation matrix. A `501 NOT_SUPPORTED` means the connected provider lacks that operation, and it is answered before any upstream call.
 
-**Passthrough** — anything the unified model does not cover:
+**Passthrough**, for anything the unified model does not cover:
 
 ```bash
 curl https://your-host/api/unified/v1/passthrough/pessoas?pagina=1 \
@@ -101,11 +101,11 @@ curl https://your-host/api/unified/v1/passthrough/pessoas?pagina=1 \
 npm run generate-provider bling
 ```
 
-This scaffolds the folder — manifest, provider class, mapper stub, test — and prints the single registry line to add. The generated provider passes the contract suite immediately: it declares no capabilities and enables passthrough, so it is honest about what it can do from day one.
+This scaffolds the folder (manifest, provider class, mapper stub, test) and prints the single registry line to add. The generated provider passes the contract suite immediately: it declares no capabilities and enables passthrough, so it is honest about what it can do from day one.
 
 Then:
 
-1. Fill in `manifest.ts` — base URL, auth, rate limit.
+1. Fill in `manifest.ts`: base URL, auth, rate limit.
 2. Implement a method and declare its capability. The contract suite fails if the two disagree, in either direction.
 3. `npx vitest run`
 
@@ -122,7 +122,7 @@ The **manifest is the single source of truth**: it drives the public catalog, th
 ## 🔒 Security
 
 - ERP credentials are encrypted at rest (AES-256-GCM).
-- API keys are stored as SHA-256 digests — the plaintext is shown once, at creation.
+- API keys are stored as SHA-256 digests, so the plaintext is shown once, at creation.
 - OAuth uses single-use, time-limited server-side `state` (PKCE available per manifest).
 - The unified API is rate limited per client; each provider is throttled per connected account.
 - Upstream error payloads never reach API consumers.
@@ -137,8 +137,20 @@ The contract suite in `src/tests/providers/contract.test.ts` runs against **ever
 
 ## 🤝 Contributing
 
-We want the largest open-source catalog of B2B integrations in the world — from obscure local accounting systems to global CRM giants. The plugin architecture is designed so that adding one costs a folder, not a refactor.
+We want the largest open source catalog of B2B integrations in the world, from
+obscure local accounting systems to global CRM giants. The plugin architecture is
+designed so that adding one costs a folder, not a refactor.
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Commits need a
+[DCO sign off](CONTRIBUTING.md#license-and-the-dco), which `git commit -s` adds
+for you.
 
 ## 📄 License
 
-MIT. See `LICENSE`.
+[Apache License 2.0](LICENSE). Use it commercially, modify it, self host it, ship
+it inside your product. The only obligations, and only when you redistribute, are
+to keep the notices and state your changes.
+
+Apache 2.0 rather than MIT for the express patent grant, which is what lets a
+corporate legal review approve it without an argument.
+See [docs/LICENSING.md](docs/LICENSING.md) for the reasoning.
