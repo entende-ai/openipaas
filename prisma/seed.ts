@@ -1,13 +1,16 @@
 import { PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
 
+import { assertSeedable } from './seed-guard'
+
 const prisma = new PrismaClient()
 
 /**
  * Development fixtures.
  *
  * DESTRUCTIVE: wipes every table before inserting. The docker entrypoint only
- * runs it when RUN_SEED=true, and it refuses to run in production.
+ * runs it when RUN_SEED=true, and seed-guard.ts refuses any database that is
+ * not demonstrably disposable.
  */
 
 function hashApiKey(key: string): string {
@@ -32,9 +35,7 @@ function encrypt(plaintext: string): string {
 }
 
 async function main() {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Refusing to seed in production: this script deletes all data.')
-  }
+  assertSeedable()
 
   console.log('🌱 Starting seed...')
 
