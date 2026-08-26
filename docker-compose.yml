@@ -1,4 +1,11 @@
-version: '3.8'
+# Local development. `docker compose up --build` should work on a fresh clone
+# with no setup at all, so every secret below has a working default.
+#
+# Those defaults are published in a public repository, which makes them useless
+# as secrets. src/lib/env-guard.ts refuses to boot in production while any of
+# them is still in place, so this file cannot quietly become a deployment.
+#
+# For a real deployment: `npm run setup:env -- --print` generates replacements.
 
 services:
   db:
@@ -13,6 +20,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Lets `web` wait for a database that actually answers queries, rather than
+    # for a container that has merely started.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ipaas_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   redis:
     image: redis:7-alpine
@@ -22,6 +36,11 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   web:
     build:
@@ -33,23 +52,40 @@ services:
       - "3000:3000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ipaas_dev
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
-      # Local development only: the seed wipes every table before inserting fixtures.
-      - RUN_SEED=true
-      # Sourced from your shell/.env. Without an encryption key the app stores
-      # credentials in plaintext in dev, and refuses to start in production.
-      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:-}
-      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
-      - DASHBOARD_SESSION_SECRET=${DASHBOARD_SESSION_SECRET:-}
-      - INTERNAL_JOB_SECRET=${INTERNAL_JOB_SECRET:-}
+
+      # Drives OAuth redirect URIs. Must match what you registered with the
+      # provider, so change it here and in the provider's app settings together.
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+
+      # Local development only: the seed wipes every table before inserting.
+      - RUN_SEED=${RUN_SEED:-true}
+
+      # Development defaults. A `.env` file next to this one overrides any of
+      # them, which is what `npm run setup:env` writes.
+      #
+      # Dashboard login: any username, password `development-only`.
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:-ZGV2ZWxvcG1lbnQtb25seS1lbmNyeXB0aW9uLWtleSE=}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-development-only}
+      - DASHBOARD_SESSION_SECRET=${DASHBOARD_SESSION_SECRET:-ZGV2ZWxvcG1lbnQtb25seS1zZXNzaW9uLXNlY3JldCE=}
+      - INTERNAL_JOB_SECRET=${INTERNAL_JOB_SECRET:-development-only-job-secret}
+
+      # Shared rate limit and idempotency state. Optional for a single
+      # container, required once more than one instance runs.
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+
+      - API_RATE_LIMIT_PER_MINUTE=${API_RATE_LIMIT_PER_MINUTE:-600}
+
+      # Provider OAuth apps. Blank by default: these are yours to register, and
+      # a provider stays unusable until its pair is filled in.
       - CONTA_AZUL_CLIENT_ID=${CONTA_AZUL_CLIENT_ID:-}
       - CONTA_AZUL_CLIENT_SECRET=${CONTA_AZUL_CLIENT_SECRET:-}
-      # Shared rate-limit and idempotency state. Required once more than one
-      # instance runs; optional for a single container.
-      - REDIS_URL=redis://redis:6379
+      - TINY_CLIENT_ID=${TINY_CLIENT_ID:-}
+      - TINY_CLIENT_SECRET=${TINY_CLIENT_SECRET:-}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
