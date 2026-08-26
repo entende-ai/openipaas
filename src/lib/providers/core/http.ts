@@ -117,7 +117,7 @@ async function performRequest(req: HttpRequest, opts: HttpOptions): Promise<{ st
 
 /**
  * Performs an HTTP request, retrying transient failures (429, 5xx, timeouts)
- * with exponential backoff. Never retries 4xx or TOKEN_EXPIRED — the caller
+ * with exponential backoff. Never retries 4xx or TOKEN_EXPIRED: the caller
  * handles refresh, since retrying with the same dead token is pointless.
  */
 export async function httpRequest(req: HttpRequest, opts: HttpOptions): Promise<{ status: number; body: any }> {

@@ -74,8 +74,8 @@ export default async function LogsPage() {
                     <TableCell className="text-muted-foreground whitespace-nowrap">
                       {log.createdAt.toISOString().replace('T', ' ').slice(0, 19)}
                     </TableCell>
-                    <TableCell>{log.client?.name ?? '—'}</TableCell>
-                    <TableCell>{log.provider ?? '—'}</TableCell>
+                    <TableCell>{log.client?.name ?? '-'}</TableCell>
+                    <TableCell>{log.provider ?? '-'}</TableCell>
                     <TableCell className="font-mono text-xs">
                       {log.method} {log.path}
                     </TableCell>

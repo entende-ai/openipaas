@@ -39,7 +39,7 @@ export function GenerateKeyButton({ clientId }: { clientId: string }) {
           <DialogHeader>
             <DialogTitle>Your new API key</DialogTitle>
             <DialogDescription>
-              Copy it now — it is stored hashed and cannot be shown again.
+              Copy it now: it is stored hashed and cannot be shown again.
             </DialogDescription>
           </DialogHeader>
 

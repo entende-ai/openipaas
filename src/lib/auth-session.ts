@@ -9,7 +9,7 @@ import { SESSION_COOKIE, issueSessionToken, verifySessionToken } from './session
  * in the Edge Runtime; this module adds the parts that need Node and cookies.
  *
  * Scope: one shared operator password for the internal console. Customer-facing
- * accounts need a real identity provider — but this replaces a dashboard that
+ * accounts need a real identity provider, but this replaces a dashboard that
  * had no authentication at all.
  */
 

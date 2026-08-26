@@ -20,7 +20,7 @@ export interface ProviderEntry {
  *
  * Server-side only in practice: constructing a provider pulls in BaseProvider
  * and its Node-only dependencies. Anything that merely *describes* the catalog
- * — the docs page, the connect UI, the public /providers endpoint — must import
+ * (the docs page, the connect UI, the public /providers endpoint) must import
  * `manifests.ts` instead, or the entire provider implementation ends up in the
  * browser bundle.
  */

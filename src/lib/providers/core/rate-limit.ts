@@ -8,7 +8,7 @@ import { getRedis } from '@/lib/redis';
  * than being rejected.
  *
  * Backed by Redis when REDIS_URL is set, so the bucket is shared across
- * instances — otherwise N instances each grant the full rate and the effective
+ * instances, otherwise N instances each grant the full rate and the effective
  * ceiling is N times the limit. A Redis failure degrades to the local bucket.
  */
 

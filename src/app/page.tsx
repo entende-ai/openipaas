@@ -235,7 +235,7 @@ export default function LandingPage() {
           >
             <div className="mt-10 font-mono text-[11px] p-5 bg-black/50 backdrop-blur-sm rounded-2xl border border-slate-800 group-hover:border-highlight/30 transition-colors">
               <div className="flex items-center gap-2 mb-2 text-slate-500 border-b border-slate-800 pb-2">
-                <Terminal size={12} /> terminal — bash
+                <Terminal size={12} /> terminal · bash
               </div>
               <span className="text-highlight">$</span> docker-compose up --build
               <motion.div 

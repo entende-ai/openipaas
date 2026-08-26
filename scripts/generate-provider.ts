@@ -4,8 +4,8 @@ import * as path from 'path';
 /**
  * Scaffolds a new integration.
  *
- * Emits a complete provider folder — manifest, provider class, mappers stub and
- * tests — plus the single registry line to add. The generated provider passes
+ * Emits a complete provider folder (manifest, provider class, mappers stub and
+ * tests) plus the single registry line to add. The generated provider passes
  * the contract suite immediately: it declares no capabilities and enables
  * passthrough, so it is honest about what it can do from day one.
  */
@@ -53,7 +53,7 @@ export const ${dirName}Manifest: ProviderManifest = {
   rateLimit: { requestsPerSecond: 2, burst: 2 },
 
   /**
-   * Declare an operation only once the matching method exists — the contract
+   * Declare an operation only once the matching method exists: the contract
    * suite fails if the two disagree, in either direction.
    */
   capabilities: {},
@@ -92,7 +92,7 @@ export class ${className}Provider extends BaseProvider {
   }
   */
 
-  /* Reference implementation — uncomment, adapt, and declare
+  /* Reference implementation: uncomment, adapt, and declare
      customers: ['list'] in the manifest.
 
   async listCustomers(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedCustomer>> {
@@ -171,7 +171,7 @@ console.log(`✅ Created src/lib/providers/implementations/${dirName}/`);
 console.log(`   manifest.ts, provider.ts, mappers/customers.ts`);
 console.log(`✅ Created src/tests/providers/${dirName}.test.ts`);
 console.log('');
-console.log('👉 One step left — register it in src/lib/providers/core/registry.ts:');
+console.log('👉 One step left, register it in src/lib/providers/core/registry.ts:');
 console.log('');
 console.log(`   import { ${dirName}Manifest } from '../implementations/${dirName}/manifest';`);
 console.log(`   import { ${className}Provider } from '../implementations/${dirName}/provider';`);

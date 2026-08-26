@@ -5,7 +5,7 @@ import crypto from 'crypto';
  * One-off backfill: encrypts credentials written before encryption existed.
  *
  * Rows are identified by the absence of the `v1:` prefix, so the script is
- * idempotent — running it twice re-encrypts nothing.
+ * idempotent: running it twice re-encrypts nothing.
  *
  *   npx tsx scripts/encrypt-credentials.ts --dry-run
  *   npx tsx scripts/encrypt-credentials.ts
@@ -37,7 +37,7 @@ async function main() {
   const credentials = await prisma.oAuthCredential.findMany();
 
   console.log(`Found ${credentials.length} credential row(s).`);
-  if (DRY_RUN) console.log('DRY RUN — nothing will be written.\n');
+  if (DRY_RUN) console.log('DRY RUN, nothing will be written.\n');
 
   let changed = 0;
 
@@ -61,7 +61,7 @@ async function main() {
   console.log('');
   console.log(
     changed === 0
-      ? '✅ Nothing to do — every credential is already encrypted.'
+      ? '✅ Nothing to do, every credential is already encrypted.'
       : `✅ ${DRY_RUN ? 'Would encrypt' : 'Encrypted'} ${changed} credential row(s).`
   );
 
