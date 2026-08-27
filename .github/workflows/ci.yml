@@ -72,3 +72,68 @@ jobs:
       # Fails if schema.prisma has drifted from the migration files.
       - name: Check for schema drift
         run: npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$DATABASE_URL" --exit-code
+
+  # Nothing exercised the Dockerfile until now. Two fatal bugs shipped because
+  # of it: a COPY of a file Next never emits, and an Alpine base whose musl
+  # runtime cannot load the glibc tailwind binding the lockfile pins. Both only
+  # surfaced when someone tried to deploy.
+  #
+  # docker-publish.yml builds the same file, but only on a release, which is far
+  # too late to learn the image is broken.
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: openipaas:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Building is not enough: the previous Dockerfile built fine and then
+      # died at boot, because the entrypoint referenced tooling the runtime
+      # stage did not carry. This runs the real entrypoint against a real
+      # database and waits for the app to answer.
+      - name: Boot it against a real database
+        run: |
+          docker network create ci
+
+          docker run -d --name db --network ci \
+            -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=ipaas \
+            postgres:15
+
+          docker run -d --name app --network ci -p 3000:3000 \
+            -e DATABASE_URL=postgresql://postgres:postgres@db:5432/ipaas \
+            -e CREDENTIALS_ENCRYPTION_KEY=JMSVEcE0PMQvBmpxIsX0eXEsgi7dwHyKfxDTVIRvHSM= \
+            -e DASHBOARD_PASSWORD=ci-only \
+            -e DASHBOARD_SESSION_SECRET=AXyLl9pyKq0hqRYrEDsSKHJ3XyWJXCcTOAo7EAiK6WU= \
+            -e INTERNAL_JOB_SECRET=ci-only-job-secret \
+            openipaas:ci
+
+          # The entrypoint waits for the database and applies migrations, so
+          # this is also the only place the shipped migrations are proven to
+          # run from inside the image.
+          # The entrypoint itself waits up to 60s for Postgres, so this has to
+          # allow for that plus the migrations and the server starting.
+          for i in $(seq 1 120); do
+            if curl -fsS http://localhost:3000/api/unified/v1/providers >/dev/null 2>&1; then
+              echo "The app answered after ${i}s."
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "The app never answered. Container logs:"
+          docker logs app
+          exit 1
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker logs app || true
