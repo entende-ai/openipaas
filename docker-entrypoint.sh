@@ -1,7 +1,10 @@
 #!/bin/sh
 set -e
 
-PRISMA="./node_modules/.bin/prisma"
+# Invoked through node rather than node_modules/.bin/prisma. That path is a
+# symlink in a normal install, and Docker COPY dereferences symlinks, which
+# leaves the CLI resolving its own bundled assets from the wrong directory.
+PRISMA="node ./node_modules/prisma/build/index.js"
 
 # Applying the migrations is also the readiness check: it fails while the
 # database is unreachable and succeeds once it is, so a separate probe would
@@ -15,7 +18,7 @@ echo "Applying migrations..."
 
 ATTEMPTS=0
 MAX_ATTEMPTS=30
-until "$PRISMA" migrate deploy 2>&1; do
+until $PRISMA migrate deploy 2>&1; do
   ATTEMPTS=$((ATTEMPTS + 1))
   if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
     echo ""
@@ -41,7 +44,7 @@ if [ "$RUN_SEED" = "true" ]; then
   if [ -f prisma/seed.js ]; then
     node prisma/seed.js
   else
-    "$PRISMA" db seed
+    $PRISMA db seed
   fi
 else
   echo "Skipping seed (set RUN_SEED=true to enable)."

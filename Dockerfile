@@ -53,9 +53,14 @@ COPY --from=builder /app/prisma ./prisma
 # The entrypoint runs `prisma migrate deploy` on boot. Copying the CLI from the
 # builder keeps that offline and pinned to the lockfile; without it, npx would
 # fetch a floating version from the network on every container start.
+#
+# node_modules/.bin/prisma is deliberately not copied. It is a symlink to
+# ../prisma/build/index.js, and COPY dereferences symlinks, so it would land as
+# a real file inside .bin/ and then resolve its own sibling assets from there:
+#   ENOENT: /app/node_modules/.bin/prisma_schema_build_bg.wasm
+# The entrypoint invokes build/index.js directly instead.
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
