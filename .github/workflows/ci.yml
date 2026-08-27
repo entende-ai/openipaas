@@ -107,7 +107,15 @@ jobs:
 
           docker run -d --name db --network ci \
             -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=ipaas \
+            --health-cmd "pg_isready -U postgres" \
+            --health-interval 2s --health-retries 30 \
             postgres:15
+
+          # Start the app only once Postgres actually answers, so a failure
+          # here means the image is broken rather than that it lost a race.
+          until [ "$(docker inspect -f '{{.State.Health.Status}}' db)" = healthy ]; do
+            sleep 2
+          done
 
           docker run -d --name app --network ci -p 3000:3000 \
             -e DATABASE_URL=postgresql://postgres:postgres@db:5432/ipaas \
