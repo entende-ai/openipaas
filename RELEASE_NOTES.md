@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.2.0 — Plugin architecture, platform layer and security hardening
+## v0.2.0: Plugin architecture, platform layer and security hardening
 
 The theme of this release is **removing the reason the catalog could not grow**.
 
@@ -47,7 +47,7 @@ findings were fixed.
 4. **Set `INTERNAL_JOB_SECRET`** and schedule `POST /api/internal/webhooks/deliver`
    if you intend to use webhooks.
 
-See `.env.example`, now versioned — it was matched by the `.env*` ignore rule and
+See `.env.example`, now versioned, because it was matched by the `.env*` ignore rule and
 had never been committed.
 
 ---
@@ -74,7 +74,7 @@ imported Node's `crypto`; the build warned without failing. Signing and
 verification now use Web Crypto only.
 
 **`next build` depended on the production database.** Dashboard pages were being
-prerendered, opening a connection to the live database at build time — the build
+prerendered, opening a connection to the live database at build time, so the build
 broke the moment the schema changed. They show live data behind a session and are
 now `force-dynamic`.
 
@@ -99,7 +99,7 @@ now `force-dynamic`.
 
 **Registry + manifest.** `src/lib/providers/core/registry.ts` is the only line to
 touch. Each manifest declares category, auth, rate limit, capabilities and
-passthrough — and feeds the public catalog, the connect UI, the OpenAPI
+passthrough, and feeds the public catalog, the connect UI, the OpenAPI
 capability matrix and the 501 responses.
 
 **BaseProvider** absorbs what was duplicated or missing: URL building,
@@ -113,7 +113,7 @@ that only threw. Unsupported operations are now refused with a precise 501
 *before* any upstream call.
 
 **Domain modules** replace the monolithic seven-method interface, so a provider
-implements only what its API has — a CRM has no products, a payment gateway has
+implements only what its API has: a CRM has no products, a payment gateway has
 no sellers.
 
 **Generic credentials.** `authType`, an encrypted secrets bag, `instanceUrl` and
@@ -204,7 +204,7 @@ contribution reviewable without reading the whole implementation.
 npm run generate-provider bling
 ```
 
-Scaffolds the folder — manifest, provider class, mapper stub, test — and prints
+Scaffolds the folder (manifest, provider class, mapper stub, test) and prints
 the one registry line to add. The generated provider passes the contract suite
 immediately: it declares no capabilities and enables passthrough, so it is honest
 about what it can do from day one.
@@ -226,7 +226,7 @@ offline with `prisma migrate diff`.
 Still open, in rough priority order:
 
 - Inbound webhooks (receiving provider events, not just emitting ours)
-- A sync/cache layer — everything is still synchronous passthrough, so upstream
+- A sync/cache layer: everything is still synchronous passthrough, so upstream
   latency is your latency
 - Multi-tenant user accounts; the dashboard session is a single shared operator
   password

@@ -143,7 +143,7 @@ function capabilityTable(): string {
   const rows = resources.map((resource) => {
     const cells = manifests.map((m) => {
       const ops = (m.capabilities as CapabilityMap)[resource] as readonly Operation[] | undefined;
-      return ops && ops.length > 0 ? ops.join(', ') : '—';
+      return ops && ops.length > 0 ? ops.join(', ') : '-';
     });
     return `| **${resource}** | ${cells.join(' | ')} |`;
   });
@@ -154,15 +154,15 @@ function capabilityTable(): string {
 export const openApiSpec = {
   openapi: '3.1.0',
   info: {
-    title: 'Open IpaaS — Unified API',
+    title: 'Open IpaaS, Unified API',
     version: '1.0.0',
     description: [
       'One English-first, strongly-typed API over many business platforms.',
       '',
       '## Authentication',
       'Every request needs two headers:',
-      '- `Authorization: Bearer <api_key>` — identifies your account.',
-      '- `X-Account-Token: <token>` — selects which connected end-customer account to act on.',
+      '- `Authorization: Bearer <api_key>`, identifies your account.',
+      '- `X-Account-Token: <token>`, selects which connected end-customer account to act on.',
       '',
       '## Pagination',
       'Responses carry `hasMore` and an opaque `nextCursor`. Pass the cursor back as `?cursor=`.',

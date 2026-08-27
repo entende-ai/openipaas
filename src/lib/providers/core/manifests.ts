@@ -4,7 +4,7 @@ import { tinyManifest } from '../implementations/tiny/manifest';
 import type { ProviderCategory, ProviderManifest } from './types';
 
 /**
- * Manifests only — plain data, no provider classes.
+ * Manifests only: plain data, no provider classes.
  *
  * Kept separate from registry.ts so that anything which merely *describes* the
  * catalog (the docs page, the connect UI, the public /providers endpoint) can

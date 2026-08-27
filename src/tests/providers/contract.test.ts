@@ -5,7 +5,7 @@ import type { Operation, ResourceName } from '@/lib/providers/core/types';
 /**
  * Contract suite: runs against every provider in the registry.
  *
- * This is what makes community contributions reviewable — a new provider either
+ * This is what makes community contributions reviewable: a new provider either
  * satisfies the shared contract or the build fails, without anyone having to
  * read the whole implementation.
  */
@@ -155,8 +155,8 @@ describe.each(slugs)('provider contract: %s', (slug) => {
  * Layering guard.
  *
  * The docs page is a client component and reads the capability matrix. When that
- * path went through registry.ts it dragged BaseProvider — and ioredis, with its
- * Node-only imports — into the browser bundle and broke the build. Data and
+ * path went through registry.ts it dragged BaseProvider, and ioredis with its
+ * Node-only imports, into the browser bundle and broke the build. Data and
  * implementation must stay separable.
  */
 describe('manifest/registry layering', () => {

@@ -7,7 +7,7 @@ import type { Redis } from 'ioredis';
  * instance. It stays optional on purpose: a single-container self-host works
  * without it, and the in-memory fallbacks behave identically for one instance.
  *
- * Set REDIS_URL to enable it. In a multi-instance deployment it is required —
+ * Set REDIS_URL to enable it. In a multi-instance deployment it is required:
  * without it each instance enforces its own private limit.
  *
  * The client is imported dynamically: ioredis pulls in Node built-ins (dns, net,

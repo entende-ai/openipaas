@@ -110,7 +110,7 @@ export interface ProviderManifest {
  * auth layer from the stored (decrypted) credential.
  */
 export interface ProviderContext {
-  /** OAuthCredential.id — needed to persist a refreshed token. */
+  /** OAuthCredential.id, needed to persist a refreshed token. */
   credentialId: string;
   provider: string;
   accessToken: string;

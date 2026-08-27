@@ -4,7 +4,7 @@ import type { ProviderManifest } from '@/lib/providers/core/types';
 import { tinyManifest } from './manifest';
 
 /**
- * Tiny (Olist) — connected but not yet mapped.
+ * Tiny (Olist): connected but not yet mapped.
  *
  * It declares no unified capabilities, so every unified route answers 501 with a
  * precise message instead of failing somewhere inside a mapper. Passthrough is

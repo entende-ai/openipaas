@@ -1,0 +1,137 @@
+# Deployment
+
+Open IpaaS is two deployments, not one.
+
+| Piece | Repository | What it needs |
+| --- | --- | --- |
+| Marketing site | [openipaas-web](https://github.com/entende-ai/openipaas-web) | Static files. Any CDN or object store |
+| Application: unified API, dashboard, `/docs` | this one | A running process, PostgreSQL, and Redis once there is more than one instance |
+
+They are separate because their requirements have nothing in common. The site is
+HTML that never changes between requests, so it belongs on a CDN, costs nothing
+and cannot go down in an interesting way. The application holds credentials,
+runs migrations and talks to upstream APIs. Deploying them together would mean a
+copy edit on the landing page redeploys the thing brokering access to your
+customers' ERP accounts.
+
+A common arrangement is `openipaas.com` for the site and `app.openipaas.com` for
+the application, but nothing in the code requires it. The site reaches the
+application only through `NEXT_PUBLIC_APP_URL`, set at build time.
+
+## Before the first deploy
+
+Generate real secrets:
+
+```bash
+npm run setup:env -- --print
+```
+
+The development defaults in `docker-compose.yml` and `.env.example` are
+published in this repository. The application refuses to start in production
+while any of them is still set, so a copied compose file fails at boot instead
+of running exposed. See `src/lib/env-guard.ts`.
+
+**`CREDENTIALS_ENCRYPTION_KEY` is not a rotatable setting.** It decrypts every
+stored provider token. Losing it means every connected account has to reconnect
+through OAuth again. Back it up wherever you keep things you cannot regenerate.
+
+## The application
+
+The image is built from the `Dockerfile` at the root. Its entrypoint waits for
+the database, applies migrations with `prisma migrate deploy`, and starts the
+server. Migrations are additive, so a deploy does not need a maintenance window
+and a rollback does not need a down migration.
+
+### Railway
+
+Railway builds the `Dockerfile` on its own, so there is nothing to configure
+beyond the service itself.
+
+1. New project, deploy from this repository.
+2. Add the **PostgreSQL** plugin. It sets `DATABASE_URL` for you.
+3. Add the **Redis** plugin if you will run more than one instance. It sets
+   `REDIS_URL`.
+4. Set the variables in the table below.
+5. Generate a domain, then set `NEXT_PUBLIC_APP_URL` to that URL and redeploy.
+
+Step 5 is genuinely two passes: the OAuth redirect URI is built from
+`NEXT_PUBLIC_APP_URL`, and you cannot know the URL until the service exists.
+
+### Coolify, Render, Fly, a plain Docker host
+
+Same image, same variables. On a plain host:
+
+```bash
+docker build -t openipaas .
+docker run -p 3000:3000 --env-file .env openipaas
+```
+
+`docker-compose.yml` is for local development. It ships a database, a Redis and
+known secrets, none of which belong on a server.
+
+### Variables
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Managed Postgres usually needs `?sslmode=require` |
+| `NEXT_PUBLIC_APP_URL` | yes | The public URL. Builds the OAuth redirect URI |
+| `CREDENTIALS_ENCRYPTION_KEY` | yes | 32 bytes, base64 or hex |
+| `DASHBOARD_PASSWORD` | yes | Otherwise `/dashboard` is unreachable |
+| `DASHBOARD_SESSION_SECRET` | yes | Changing it logs everyone out, which is how you revoke sessions |
+| `INTERNAL_JOB_SECRET` | yes | Authorizes the webhook delivery job |
+| `REDIS_URL` | for >1 instance | Without it, rate limiting and idempotency are per process |
+| `API_RATE_LIMIT_PER_MINUTE` | no | Defaults to 600 |
+| `<SLUG>_CLIENT_ID` / `<SLUG>_CLIENT_SECRET` | per provider | From the provider's developer portal |
+| `RUN_SEED` | no | Development only. Wipes every table |
+
+### Running more than one instance
+
+`REDIS_URL` stops being optional. Rate limiting and idempotency keys fall back
+to process memory without it, and two instances each keeping their own count
+means the real ceiling is twice what you configured, while a retried request can
+land on an instance that never saw the first attempt and so runs it twice.
+
+### After deploying
+
+- `GET /api/unified/v1/providers` returns the catalog. It needs no credentials
+  and is a good health check.
+- `/docs` serves the API reference generated from the running code.
+- `/dashboard` is where clients, API keys and connected accounts are managed.
+
+### Connecting a provider
+
+For each one, register an OAuth application in its developer portal with:
+
+```
+<NEXT_PUBLIC_APP_URL>/api/oauth/callback/<provider-slug>
+```
+
+The slug is the manifest slug lowercased with underscores replaced by hyphens,
+so `CONTA_AZUL` becomes `conta-azul`. Set `CONTA_AZUL_CLIENT_ID` and
+`CONTA_AZUL_CLIENT_SECRET`, and the provider becomes connectable with no code
+change.
+
+A mismatch here, usually `http` against `https` or a trailing slash, is the
+single most common reason an otherwise correct OAuth flow fails.
+
+## The site
+
+From the [openipaas-web](https://github.com/entende-ai/openipaas-web)
+repository. The build is a static export, so:
+
+- **Cloudflare Pages**: build `npm run build`, output directory `out`
+- **Railway, Coolify, any Docker host**: the repository's `Dockerfile` serves
+  `out/` with nginx
+- **Anything else**: copy `out/` to the document root
+
+Set `NEXT_PUBLIC_APP_URL` to wherever the application ended up. Static exports
+bake it in at build time, so changing it needs a rebuild, not a restart.
+
+## Upgrading
+
+```bash
+docker pull ghcr.io/entende-ai/openipaas:latest
+```
+
+Migrations run on boot. Read the release notes first when the minor version
+changes.

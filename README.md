@@ -45,23 +45,54 @@ src/lib/providers/
 ## 🚀 Quick start
 
 ```bash
-cp .env.example .env      # fill in the values described below
-docker-compose up --build # Postgres + migrations + seed + app
+git clone https://github.com/entende-ai/openipaas.git
+cd openipaas
+docker compose up --build
 ```
 
-Then open `http://localhost:3000/docs` for the interactive reference.
+That is the whole setup. Postgres, Redis, migrations, seed data and the app,
+with working development defaults for every secret.
 
-### Required environment
+- API reference: `http://localhost:3000/docs`
+- Dashboard: `http://localhost:3000/dashboard`, password `development-only`
+
+Connecting a provider needs its OAuth credentials, which are yours to register.
+Put them in `.env` as `<SLUG>_CLIENT_ID` and `<SLUG>_CLIENT_SECRET`, and register
+`http://localhost:3000/api/oauth/callback/<provider-slug>` as the callback.
+
+### Running the app outside Docker
+
+```bash
+npm install
+npm run setup:env    # writes .env with real generated secrets
+npm run setup        # starts Postgres and Redis, migrates, seeds
+npm run dev
+```
+
+### Environment
+
+`.env.example` documents every variable and ships the same development defaults
+as docker compose. For anything real, replace the secrets:
+
+```bash
+npm run setup:env -- --print     # prints generated values to paste in
+```
 
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `CREDENTIALS_ENCRYPTION_KEY` | 32 bytes (base64/hex). Encrypts stored ERP tokens at rest. **Required in production** |
+| `NEXT_PUBLIC_APP_URL` | Public URL of this app. Builds the OAuth redirect URI, so it must match what the provider has registered |
+| `CREDENTIALS_ENCRYPTION_KEY` | 32 bytes (base64/hex). Encrypts stored provider tokens at rest |
 | `DASHBOARD_PASSWORD` + `DASHBOARD_SESSION_SECRET` | Gate the admin console. Without both, `/dashboard` is unreachable |
 | `INTERNAL_JOB_SECRET` | Authorizes the webhook delivery job |
+| `REDIS_URL` | Shared rate limit and idempotency state. Optional for one instance, required for more than one |
 | `<SLUG>_CLIENT_ID` / `<SLUG>_CLIENT_SECRET` | OAuth app per provider, e.g. `CONTA_AZUL_CLIENT_ID` |
 
-Generate secrets with `openssl rand -base64 32`.
+The development defaults are published in this repository, so they are not
+secret. The app refuses to start in production while any of them is still in
+place, rather than running exposed.
+
+Deploying for real is covered in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## 📡 Using the API
 

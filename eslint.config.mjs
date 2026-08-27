@@ -9,7 +9,7 @@ const eslintConfig = defineConfig([
     rules: {
       /**
        * This project maps untyped third-party API payloads for a living, so
-       * `any` at the upstream boundary is deliberate — the Zod parse in each
+       * `any` at the upstream boundary is deliberate, and the Zod parse in each
        * mapper is what actually enforces the shape. Kept as a warning so it
        * stays visible without making CI unpassable.
        */
