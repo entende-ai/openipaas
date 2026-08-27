@@ -45,10 +45,10 @@ RUN apt-get update \
 
 # Next's standalone output carries its own minimal node_modules and a copy of
 # the resolved config, so next.config.ts is deliberately not copied here.
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
+COPY --chown=node:node --from=builder /app/.next/standalone ./
+COPY --chown=node:node --from=builder /app/.next/static ./.next/static
+COPY --chown=node:node --from=builder /app/public ./public
+COPY --chown=node:node --from=builder /app/prisma ./prisma
 
 # The entrypoint runs `prisma migrate deploy` on boot. Copying the CLI from the
 # builder keeps that offline and pinned to the lockfile; without it, npx would
@@ -59,13 +59,16 @@ COPY --from=builder /app/prisma ./prisma
 # a real file inside .bin/ and then resolve its own sibling assets from there:
 #   ENOENT: /app/node_modules/.bin/prisma_schema_build_bg.wasm
 # The entrypoint invokes build/index.js directly instead.
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --chown=node:node --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --chown=node:node --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-COPY docker-entrypoint.sh ./
+COPY --chown=node:node docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
-# Run unprivileged. The standalone image needs no write access to its own files.
+# Run unprivileged. Everything above is copied as node:node because the prisma
+# CLI checks that @prisma/engines is writable before it will run, and refuses
+# with "please make sure you install prisma with the right permissions" against
+# root-owned files.
 USER node
 
 EXPOSE 3000
