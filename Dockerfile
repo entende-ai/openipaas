@@ -1,12 +1,20 @@
+# Debian, not Alpine. Alpine is musl, and the lockfile pins
+# @tailwindcss/oxide-linux-x64-gnu, the glibc build, added in 690b4b9 to fix
+# the Vercel build. On musl that binding cannot load and `next build` dies with
+# "Cannot find module @tailwindcss/oxide-linux-x64-musl".
+#
+# Prisma has the same split: on Alpine it fails to detect libssl and falls back
+# to an openssl-1.1.x engine that does not match the system.
+#
 # Stage 1: dependencies
-FROM node:20-alpine AS deps
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 # ci, not install: the lockfile is the point of shipping one.
 RUN npm ci
 
 # Stage 2: build
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -22,15 +30,18 @@ RUN npx esbuild prisma/seed.ts \
       --outfile=prisma/seed.js
 
 # Stage 3: runtime
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Prisma's query engine links against OpenSSL.
-RUN apk add --no-cache openssl
+# Prisma's query engine links against OpenSSL. bookworm-slim carries libssl3
+# but not the ca-certificates that outbound HTTPS to provider APIs needs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Next's standalone output carries its own minimal node_modules and a copy of
 # the resolved config, so next.config.ts is deliberately not copied here.
