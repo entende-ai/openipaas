@@ -156,6 +156,24 @@ jobs:
               .catch((e) => { console.error(e); process.exit(1); });
           "
 
+      # A missing DATABASE_URL is the most likely first-deploy mistake, and the
+      # entrypoint used to retry it thirty times before giving up, burying the
+      # one useful line under a minute of identical stack traces.
+      - name: Fail fast when DATABASE_URL is missing
+        run: |
+          if docker run --rm --name misconfigured openipaas:ci > out.log 2>&1; then
+            echo "Booted with no DATABASE_URL. It should have refused."
+            exit 1
+          fi
+
+          cat out.log
+          grep -q "DATABASE_URL is not set" out.log
+          # Retrying a permanent error is the bug this guards against.
+          if grep -q "retrying in 2s" out.log; then
+            echo "Retried a configuration error that cannot resolve itself."
+            exit 1
+          fi
+
       - name: Show logs on failure
         if: failure()
         run: docker logs app || true

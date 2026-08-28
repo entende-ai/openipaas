@@ -48,13 +48,26 @@ Railway builds the `Dockerfile` on its own, so there is nothing to configure
 beyond the service itself.
 
 1. New project, deploy from this repository.
-2. Add the **PostgreSQL** plugin. It sets `DATABASE_URL` for you.
-3. Add the **Redis** plugin if you will run more than one instance. It sets
-   `REDIS_URL`.
-4. Set the variables in the table below.
-5. Generate a domain, then set `NEXT_PUBLIC_APP_URL` to that URL and redeploy.
+2. Add the **PostgreSQL** plugin.
+3. In **your service's** Variables tab, add:
 
-Step 5 is genuinely two passes: the OAuth redirect URI is built from
+   ```
+   DATABASE_URL = ${{Postgres.DATABASE_URL}}
+   ```
+
+4. Add the **Redis** plugin if you will run more than one instance, and
+   reference it the same way as `REDIS_URL = ${{Redis.REDIS_URL}}`.
+5. Set the remaining variables from the table below.
+6. Generate a domain, then set `NEXT_PUBLIC_APP_URL` to that URL and redeploy.
+
+Step 3 is the one that catches people, this documentation included: **adding
+the plugin does not give your service the variable.** Railway sets
+`DATABASE_URL` on the Postgres service, and services do not share an
+environment. Without the explicit reference the app boots with nothing to
+connect to, and Prisma reports it as a schema validation error rather than a
+missing configuration one.
+
+Step 6 is genuinely two passes: the OAuth redirect URI is built from
 `NEXT_PUBLIC_APP_URL`, and you cannot know the URL until the service exists.
 
 ### Coolify, Render, Fly, a plain Docker host
