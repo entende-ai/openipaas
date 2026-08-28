@@ -142,6 +142,20 @@ jobs:
           docker logs app
           exit 1
 
+      # Answering a request is not proof the database layer works. The probe
+      # above needs neither Prisma nor Postgres, so it passed while the image
+      # carried a query engine built for the wrong OpenSSL, which only failed
+      # on the first real query. Migrations do not catch it either: they use
+      # the schema engine, not the query engine.
+      - name: Query the database through Prisma
+        run: |
+          docker exec app node -e "
+            const { PrismaClient } = require('@prisma/client');
+            new PrismaClient().client.count()
+              .then((n) => { console.log('Query engine loaded, ' + n + ' clients.'); process.exit(0); })
+              .catch((e) => { console.error(e); process.exit(1); });
+          "
+
       - name: Show logs on failure
         if: failure()
         run: docker logs app || true
