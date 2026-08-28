@@ -6,15 +6,29 @@
 # Prisma has the same split: on Alpine it fails to detect libssl and falls back
 # to an openssl-1.1.x engine that does not match the system.
 #
+# Every stage shares this base. Prisma picks its query engine by detecting the
+# installed OpenSSL, and it does that during `prisma generate` at build time,
+# not at boot. When openssl was installed only in the runtime stage, generate
+# ran blind, warned "failed to detect the libssl/openssl version, defaulting to
+# openssl-1.1.x", and baked a reference to an engine that does not exist on
+# bookworm:
+#   Unable to require(.prisma/client/libquery_engine-debian-openssl-1.1.x.so.node)
+# The build still succeeded, because no page queries the database at build
+# time. It broke on the first real query instead.
+FROM node:20-bookworm-slim AS base
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # Stage 1: dependencies
-FROM node:20-bookworm-slim AS deps
+FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 # ci, not install: the lockfile is the point of shipping one.
 RUN npm ci
 
 # Stage 2: build
-FROM node:20-bookworm-slim AS builder
+FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -30,18 +44,12 @@ RUN npx esbuild prisma/seed.ts \
       --outfile=prisma/seed.js
 
 # Stage 3: runtime
-FROM node:20-bookworm-slim AS runner
+FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-
-# Prisma's query engine links against OpenSSL. bookworm-slim carries libssl3
-# but not the ca-certificates that outbound HTTPS to provider APIs needs.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
 
 # Next's standalone output carries its own minimal node_modules and a copy of
 # the resolved config, so next.config.ts is deliberately not copied here.
