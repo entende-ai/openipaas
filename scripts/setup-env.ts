@@ -1,8 +1,7 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { PUBLISHED_DEV_SECRETS } from '../src/lib/env-guard';
+import { fillEnvTemplate, secretLines } from './env-template';
 
 /**
  * Writes a ready to run `.env` from `.env.example`, generating every secret.
@@ -11,10 +10,8 @@ import { PUBLISHED_DEV_SECRETS } from '../src/lib/env-guard';
  * times, which is a copy paste ritual that fails outright on Windows, where
  * openssl is not installed by default.
  *
- * Only keys listed in GENERATED are filled, and only where the example still
- * holds a blank or a published development default. Everything else is left
- * alone, so provider OAuth credentials stay obviously unset and a value someone
- * chose deliberately is never rotated behind their back.
+ * The transformation lives in env-template.ts so it can be tested; this file is
+ * the IO around it.
  *
  *   npm run setup:env
  *   npm run setup:env -- --force     overwrite an existing .env
@@ -28,46 +25,16 @@ const TARGET = path.join(ROOT, '.env');
 const FORCE = process.argv.includes('--force');
 const PRINT_ONLY = process.argv.includes('--print');
 
-/** Keys this script is allowed to fill, and how to generate each one. */
-const GENERATED: Record<string, () => string> = {
-  // 32 bytes exactly: crypto.ts rejects anything else.
-  CREDENTIALS_ENCRYPTION_KEY: () => crypto.randomBytes(32).toString('base64'),
-  DASHBOARD_SESSION_SECRET: () => crypto.randomBytes(32).toString('base64'),
-  INTERNAL_JOB_SECRET: () => crypto.randomBytes(32).toString('base64'),
-  // Typed by a human at a login form, so base64url avoids the shell hostile
-  // characters that base64 can produce.
-  DASHBOARD_PASSWORD: () => crypto.randomBytes(18).toString('base64url'),
-};
-
-function fill(line: string): string {
-  const match = /^([A-Z_0-9]+)=(.*)$/.exec(line);
-  if (!match) return line;
-
-  const [, name, rawValue] = match;
-  const generate = GENERATED[name];
-  if (!generate) return line;
-
-  const value = rawValue.trim().replace(/^["']|["']$/g, '');
-
-  // Replace a blank, or a default that is published in this repository and so
-  // protects nothing. Any other value was chosen on purpose: leave it.
-  const replaceable = value === '' || value === PUBLISHED_DEV_SECRETS[name];
-  return replaceable ? `${name}="${generate()}"` : line;
-}
-
 function main() {
   if (!fs.existsSync(EXAMPLE)) {
     console.error('Could not find .env.example. Run this from the repository root.');
     process.exit(1);
   }
 
-  const filled = fs.readFileSync(EXAMPLE, 'utf8').split('\n').map(fill).join('\n');
+  const filled = fillEnvTemplate(fs.readFileSync(EXAMPLE, 'utf8'));
 
   if (PRINT_ONLY) {
-    const secrets = filled
-      .split('\n')
-      .filter((line) => Object.keys(GENERATED).some((key) => line.startsWith(`${key}=`)));
-    console.log(secrets.join('\n'));
+    console.log(secretLines(filled).join('\n'));
     return;
   }
 
@@ -100,4 +67,9 @@ function main() {
   console.log('Losing it means every connected account has to be reconnected.');
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+}
