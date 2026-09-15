@@ -41,8 +41,9 @@ export const rdStationCrmManifest: ProviderManifest = {
 
   passthrough: true,
 
-  // Stays off until the OAuth flow has run once against a real RD app. The docs
-  // do not mention the `state` parameter, and without it the callback cannot
-  // tell which client the account belongs to.
-  enabled: false,
+  // On so the first connection against a real RD app can run from the
+  // dashboard. The docs do not mention the `state` parameter; if RD drops it,
+  // the callback refuses the connection (it cannot tell which client the
+  // account belongs to) and this goes back to false until that is handled.
+  enabled: true,
 };

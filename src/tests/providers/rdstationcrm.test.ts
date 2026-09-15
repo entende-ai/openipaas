@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { RdStationCrmProvider } from '@/lib/providers/implementations/rdstationcrm/provider';
 import { rdStationCrmManifest } from '@/lib/providers/implementations/rdstationcrm/manifest';
+import { connectionOffer } from '@/lib/providers/core/manifests';
 import { makeContext, stubFetch, noSleep } from '../helpers';
 
 // The shared contract suite checks the manifest and capability wiring. This
@@ -58,9 +59,8 @@ describe('RdStationCrmProvider manifest', () => {
     expect(rdStationCrmManifest.auth).toMatchObject({ type: 'OAUTH2', tokenEndpointAuth: 'body' });
   });
 
-  it('stays out of the connect dialog until the OAuth flow has run for real', () => {
-    // Flip together with a successful end-to-end connection against a real RD
-    // app, which is also when the `state` round trip gets confirmed.
-    expect(rdStationCrmManifest.enabled).toBe(false);
+  it('is offered in the connect dialog as passthrough only', () => {
+    // No unified CRM resources yet, so passthrough is all a connection gives.
+    expect(connectionOffer(rdStationCrmManifest)).toEqual({ connectable: true, note: 'passthrough only' });
   });
 });

@@ -63,6 +63,7 @@ describe('env template', () => {
 
     expect(filled).toMatch(/^CONTA_AZUL_CLIENT_ID=""$/m);
     expect(filled).toMatch(/^CONTA_AZUL_CLIENT_SECRET=""$/m);
+    expect(filled).toMatch(/^RD_STATION_CRM_CLIENT_SECRET=""$/m);
   });
 
   it('leaves a value someone chose deliberately alone', () => {
