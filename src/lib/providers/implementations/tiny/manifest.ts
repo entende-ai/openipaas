@@ -5,7 +5,7 @@ export const tinyManifest: ProviderManifest = {
   name: 'Tiny (Olist)',
   category: 'ACCOUNTING',
   description: 'Brazilian ERP for retail and e-commerce operations.',
-  logo: '/logos/tiny.svg',
+  logo: '/logos/tiny.com.br.png',
   docsUrl: 'https://tiny.com.br/api-docs',
   baseUrl: 'https://api.tiny.com.br/public-api/v3',
   auth: {

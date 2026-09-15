@@ -5,7 +5,7 @@ export const omieManifest: ProviderManifest = {
   name: 'Omie',
   category: 'ACCOUNTING',
   description: 'Brazilian cloud ERP with a JSON-RPC style API.',
-  logo: '/logos/omie.svg',
+  logo: '/logos/omie.com.br.png',
   docsUrl: 'https://developer.omie.com.br',
   baseUrl: 'https://app.omie.com.br/api/v1',
   auth: {

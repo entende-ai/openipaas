@@ -17,7 +17,9 @@ const domains = [
   "contaazul.com",
   "omie.com.br",
   "vtex.com",
-  "nuvemshop.com.br"
+  "nuvemshop.com.br",
+  "tiny.com.br",
+  "rdstation.com"
 ];
 
 const downloadLogo = async (domain) => {

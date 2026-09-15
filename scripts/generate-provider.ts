@@ -36,7 +36,10 @@ export const ${dirName}Manifest: ProviderManifest = {
   name: '${displayName}',
   category: 'ACCOUNTING', // ACCOUNTING | ECOMMERCE | CRM | PAYMENTS | FISCAL | HRIS
   description: 'TODO: one line describing what ${displayName} does.',
-  logo: '/logos/${dirName}.svg',
+  // A file under public/logos, named by domain: add the domain to
+  // scripts/download-logos.js and run it. The contract suite fails if the file
+  // is missing, so leave this out until it exists.
+  // logo: '/logos/${dirName}.com.png',
   docsUrl: 'https://example.com/docs',
   // No trailing slash: request paths are appended directly.
   baseUrl: 'https://api.${dirName}.com/v1',
