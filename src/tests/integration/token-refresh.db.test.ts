@@ -38,7 +38,9 @@ function rotatingTokenEndpoint(delayMs: number) {
 describe.skipIf(!url)('token refresh against a real Postgres', () => {
   let prisma: typeof import('@/lib/prisma').default;
   let refreshWithLock: typeof import('@/lib/token-refresh').refreshWithLock;
+  let persistNewCredential: typeof import('@/lib/token-refresh').persistNewCredential;
   let clientId: string;
+  let linkedAccountId: string;
   let credentialId: string;
 
   const ctx = (): ProviderContext => ({ credentialId, provider: 'CONTA_AZUL', accessToken: 'stale', secrets: {} });
@@ -55,13 +57,14 @@ describe.skipIf(!url)('token refresh against a real Postgres', () => {
 
     // Imported only now, so the client is built against the database above.
     prisma = (await import('@/lib/prisma')).default;
-    ({ refreshWithLock } = await import('@/lib/token-refresh'));
+    ({ refreshWithLock, persistNewCredential } = await import('@/lib/token-refresh'));
 
     const client = await prisma.client.create({ data: { name: 'token refresh integration test' } });
     clientId = client.id;
     const account = await prisma.linkedAccount.create({ data: { clientId, provider: 'CONTA_AZUL' } });
+    linkedAccountId = account.id;
     const credential = await prisma.oAuthCredential.create({
-      data: { linkedAccountId: account.id, accessToken: 'stale', refreshToken: 'rt-1' },
+      data: { linkedAccountId, accessToken: 'stale', refreshToken: 'rt-1' },
     });
     credentialId = credential.id;
   });
@@ -108,5 +111,29 @@ describe.skipIf(!url)('token refresh against a real Postgres', () => {
 
     expect(endpoint.calls()).toBe(1);
     expect(a.accessToken).toBe(b.accessToken);
+  }, 20_000);
+
+  it('lets a reconnect that lands mid-refresh have the last word', async () => {
+    const endpoint = rotatingTokenEndpoint(1_000);
+    vi.stubGlobal('fetch', endpoint.fetchImpl);
+
+    const refreshing = refreshWithLock(ctx());
+    // Long enough for the refresh to hold the lock and be waiting on the
+    // provider, well short of the provider's reply.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const reconnecting = persistNewCredential({
+      linkedAccountId,
+      authType: 'OAUTH2',
+      accessToken: 'reconnected',
+      refreshToken: 'rt-new',
+    });
+
+    await Promise.all([refreshing, reconnecting]);
+
+    // Unlocked, the reconnect wrote at 300ms and the refresh wrote the old
+    // grant's tokens over it at 1000ms.
+    const row = await prisma.oAuthCredential.findUniqueOrThrow({ where: { id: credentialId } });
+    expect(decrypt(row.accessToken)).toBe('reconnected');
+    expect(decrypt(row.refreshToken!)).toBe('rt-new');
   }, 20_000);
 });
