@@ -10,6 +10,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// A person who signs in to the admin console.
+///
+/// Separate from Client, which is an API consumer and never signs in here.
+model DashboardUser {
+  id String @id @default(uuid())
+  /// Stored lowercased and trimmed, so sign-in is case-insensitive.
+  email String @unique
+  name  String?
+  /// scrypt, salt included. The plaintext never leaves the login form.
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+}
+
 model Client {
   id        String   @id @default(uuid())
   name      String

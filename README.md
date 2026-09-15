@@ -54,7 +54,9 @@ That is the whole setup. Postgres, Redis, migrations, seed data and the app,
 with working development defaults for every secret.
 
 - API reference: `http://localhost:3000/docs`
-- Dashboard: `http://localhost:3000/dashboard`, password `development-only`
+- Dashboard: `http://localhost:3000/dashboard`. The first visit asks you to
+  create an account; confirm it with the server password, `development-only`
+  by default (`DASHBOARD_PASSWORD`). After that you sign in with your email.
 
 Connecting a provider needs its OAuth credentials, which are yours to register.
 Put them in `.env` as `<SLUG>_CLIENT_ID` and `<SLUG>_CLIENT_SECRET`, and register

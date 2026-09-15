@@ -89,7 +89,7 @@ known secrets, none of which belong on a server.
 | `DATABASE_URL` | yes | Managed Postgres usually needs `?sslmode=require` |
 | `NEXT_PUBLIC_APP_URL` | yes | The public URL. Builds the OAuth redirect URI |
 | `CREDENTIALS_ENCRYPTION_KEY` | yes | 32 bytes, base64 or hex |
-| `DASHBOARD_PASSWORD` | yes | Otherwise `/dashboard` is unreachable |
+| `DASHBOARD_PASSWORD` | yes | The operator secret: creates the first account and resets forgotten passwords. Not how people sign in |
 | `DASHBOARD_SESSION_SECRET` | yes | Changing it logs everyone out, which is how you revoke sessions |
 | `INTERNAL_JOB_SECRET` | yes | Authorizes the webhook delivery job |
 | `REDIS_URL` | for >1 instance | Without it, rate limiting and idempotency are per process |
@@ -110,6 +110,18 @@ land on an instance that never saw the first attempt and so runs it twice.
   and is a good health check.
 - `/docs` serves the API reference generated from the running code.
 - `/dashboard` is where clients, API keys and connected accounts are managed.
+
+### The first sign-in
+
+People sign in with an email and a password, kept as a scrypt hash in the
+database. A fresh deployment has no account, so `/login` offers to create one,
+and asks for `DASHBOARD_PASSWORD` to prove the person setting it up owns the
+deployment. That is the only way an account is created today, so do this before
+announcing the URL. Once an account exists, the setup form is gone for good.
+
+Forgotten passwords are reset on the same page, again with
+`DASHBOARD_PASSWORD`. There is no recovery email, because a self-hosted install
+has no mail server to send one from.
 
 ### Connecting a provider
 
