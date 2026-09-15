@@ -67,7 +67,12 @@ export async function beginOAuthFlow(params: {
   url.searchParams.set('client_id', appClientId);
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('state', state);
-  url.searchParams.set('scope', manifest.auth.scopes.join(' '));
+  // Scope is optional in OAuth 2.0 (RFC 6749, 3.3) and some providers, RD
+  // Station CRM among them, document none. An empty `scope=` is not the same as
+  // leaving it out: strict servers reject it as an invalid scope.
+  if (manifest.auth.scopes.length > 0) {
+    url.searchParams.set('scope', manifest.auth.scopes.join(' '));
+  }
 
   if (manifest.auth.pkce) {
     url.searchParams.set('code_challenge', base64url(crypto.createHash('sha256').update(codeVerifier).digest()));

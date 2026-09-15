@@ -1,5 +1,6 @@
 import { contaAzulManifest } from '../implementations/contaazul/manifest';
 import { omieManifest } from '../implementations/omie/manifest';
+import { rdStationCrmManifest } from '../implementations/rdstationcrm/manifest';
 import { tinyManifest } from '../implementations/tiny/manifest';
 import type { ProviderCategory, ProviderManifest } from './types';
 
@@ -16,6 +17,7 @@ import type { ProviderCategory, ProviderManifest } from './types';
 export const MANIFESTS: Record<string, ProviderManifest> = {
   [contaAzulManifest.slug]: contaAzulManifest,
   [omieManifest.slug]: omieManifest,
+  [rdStationCrmManifest.slug]: rdStationCrmManifest,
   [tinyManifest.slug]: tinyManifest,
 };
 

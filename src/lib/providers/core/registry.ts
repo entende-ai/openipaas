@@ -7,6 +7,8 @@ import { contaAzulManifest } from '../implementations/contaazul/manifest';
 import { ContaAzulProvider } from '../implementations/contaazul/provider';
 import { omieManifest } from '../implementations/omie/manifest';
 import { OmieProvider } from '../implementations/omie/provider';
+import { rdStationCrmManifest } from '../implementations/rdstationcrm/manifest';
+import { RdStationCrmProvider } from '../implementations/rdstationcrm/provider';
 import { tinyManifest } from '../implementations/tiny/manifest';
 import { TinyProvider } from '../implementations/tiny/provider';
 
@@ -27,6 +29,7 @@ export interface ProviderEntry {
 export const PROVIDERS: Record<string, ProviderEntry> = {
   [contaAzulManifest.slug]: { manifest: contaAzulManifest, create: (deps) => new ContaAzulProvider(deps) },
   [omieManifest.slug]: { manifest: omieManifest, create: (deps) => new OmieProvider(deps) },
+  [rdStationCrmManifest.slug]: { manifest: rdStationCrmManifest, create: (deps) => new RdStationCrmProvider(deps) },
   [tinyManifest.slug]: { manifest: tinyManifest, create: (deps) => new TinyProvider(deps) },
 };
 

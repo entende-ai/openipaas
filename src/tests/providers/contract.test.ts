@@ -89,7 +89,10 @@ describe.each(slugs)('provider contract: %s', (slug) => {
     if (manifest.auth.type === 'OAUTH2') {
       expect(manifest.auth.authorizationUrl).toMatch(/^https:\/\//);
       expect(manifest.auth.tokenUrl).toMatch(/^https:\/\//);
-      expect(manifest.auth.scopes.length).toBeGreaterThan(0);
+      // Empty is legitimate: scope is optional in OAuth 2.0 and RD Station CRM
+      // documents none. The authorize URL then omits the parameter entirely.
+      expect(Array.isArray(manifest.auth.scopes)).toBe(true);
+      for (const scope of manifest.auth.scopes) expect(scope.trim().length).toBeGreaterThan(0);
       expect(['basic', 'body']).toContain(manifest.auth.tokenEndpointAuth);
     } else {
       expect(manifest.auth.fields.length).toBeGreaterThan(0);
