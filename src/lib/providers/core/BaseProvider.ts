@@ -10,10 +10,21 @@ import type {
   UnifiedProvider,
 } from './types';
 
-/** Persists a renewed credential and returns the fresh tokens. */
+/**
+ * Persists a renewed credential and returns the fresh tokens. `ctx.accessToken`
+ * is the token the caller found expired, which is how the refresher tells a
+ * stale caller from one whose token was already replaced.
+ */
 export type TokenRefresher = (
   ctx: ProviderContext
-) => Promise<{ accessToken: string; refreshToken?: string | null }>;
+) => Promise<{ accessToken: string; refreshToken?: string | null; expiresAt?: Date | null }>;
+
+/**
+ * How long before its stated expiry a token is renewed. Renewing early spares
+ * every request that would otherwise hit the expiry together a failed call and a
+ * replay.
+ */
+export const EARLY_RENEWAL_MARGIN_MS = 60_000;
 
 export interface ProviderDeps {
   fetchImpl?: typeof fetch;
@@ -22,6 +33,7 @@ export interface ProviderDeps {
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
   maxAttempts?: number;
+  now?: () => number;
 }
 
 export interface ProviderRequest {
@@ -41,6 +53,14 @@ export interface ProviderRequest {
  */
 export abstract class BaseProvider implements UnifiedProvider {
   abstract readonly manifest: ProviderManifest;
+
+  /**
+   * Tokens renewed during this instance's life, by credential. A provider is
+   * built per API request, so this lets the remaining calls of a paginated or
+   * multi-step operation use the new token instead of each rediscovering the
+   * expiry.
+   */
+  private readonly renewed = new Map<string, { accessToken: string; expiresAt: Date | null }>();
 
   constructor(protected readonly deps: ProviderDeps = {}) {}
 
@@ -91,8 +111,9 @@ export abstract class BaseProvider implements UnifiedProvider {
   /* -------------------------------------------------- requests */
 
   /**
-   * Rate-limited, retried request. On 401 the credential is refreshed once and
-   * the exact same call is replayed with the new token.
+   * Rate-limited, retried request. A token close to its stated expiry is renewed
+   * first; on 401 the credential is refreshed once and the exact same call is
+   * replayed with the new token.
    */
   protected async request<T = any>(ctx: ProviderContext, req: ProviderRequest): Promise<T> {
     const attempt = async (accessToken: string): Promise<T> => {
@@ -129,19 +150,47 @@ export abstract class BaseProvider implements UnifiedProvider {
       return body as T;
     };
 
+    let token = this.renewed.get(ctx.credentialId)?.accessToken ?? ctx.accessToken;
+
+    if (this.deps.refreshCredential && this.expiresSoon(ctx)) {
+      try {
+        token = await this.renew(ctx, token);
+      } catch (err) {
+        // The current token still has up to the margin left, so try it; if it
+        // is refused, the 401 path below gets a second chance to renew.
+        console.warn(`[${this.manifest.slug}] early renewal of ${ctx.credentialId} failed: ${(err as Error).message}`);
+      }
+    }
+
     try {
-      return await attempt(ctx.accessToken);
+      return await attempt(token);
     } catch (err) {
       if (!(err instanceof TokenExpiredError)) throw err;
-
-      const refresher = this.deps.refreshCredential;
-      if (!refresher) throw err;
+      if (!this.deps.refreshCredential) throw err;
 
       console.log(`[${this.manifest.slug}] 401 received; refreshing credential ${ctx.credentialId}`);
-      const renewed = await refresher(ctx);
+      const fresh = await this.renew(ctx, token);
       console.log(`[${this.manifest.slug}] refresh succeeded; replaying request`);
-      return await attempt(renewed.accessToken);
+      return await attempt(fresh);
     }
+  }
+
+  private expiresSoon(ctx: ProviderContext): boolean {
+    // A renewal recorded here supersedes what the request started with, even
+    // when the provider gave no expiry for the new token.
+    const renewed = this.renewed.get(ctx.credentialId);
+    const expiresAt = renewed ? renewed.expiresAt : ctx.expiresAt;
+    if (!expiresAt) return false;
+
+    const now = this.deps.now?.() ?? Date.now();
+    return expiresAt.getTime() - now < EARLY_RENEWAL_MARGIN_MS;
+  }
+
+  /** `staleToken` is the one actually in use, so the refresher can tell it was replaced. */
+  private async renew(ctx: ProviderContext, staleToken: string): Promise<string> {
+    const renewed = await this.deps.refreshCredential!({ ...ctx, accessToken: staleToken });
+    this.renewed.set(ctx.credentialId, { accessToken: renewed.accessToken, expiresAt: renewed.expiresAt ?? null });
+    return renewed.accessToken;
   }
 
   protected async requestBinary(ctx: ProviderContext, req: Omit<ProviderRequest, 'responseType'>): Promise<ArrayBuffer> {
