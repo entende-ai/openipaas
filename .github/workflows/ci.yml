@@ -69,6 +69,21 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      # The unit tests fake the database, so they cannot show that the advisory
+      # lock around token refresh really excludes a second instance. Without it,
+      # a provider that rotates refresh tokens (RD Station CRM) disconnects
+      # healthy accounts whenever two requests hit an expiry together.
+      #
+      # Runs before the drift check, which reuses this database as its shadow
+      # and resets it.
+      - name: Token refresh holds across instances
+        run: npx vitest run src/tests/integration
+        env:
+          INTEGRATION_DATABASE_URL: ${{ env.DATABASE_URL }}
+
       # Fails if schema.prisma has drifted from the migration files.
       - name: Check for schema drift
         run: npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$DATABASE_URL" --exit-code

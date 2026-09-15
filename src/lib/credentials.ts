@@ -13,6 +13,7 @@ export function toProviderContext(credential: OAuthCredential, provider: string)
     provider,
     accessToken: decrypt(credential.accessToken),
     refreshToken: decryptNullable(credential.refreshToken),
+    expiresAt: credential.expiresAt,
     instanceUrl: credential.instanceUrl,
     externalTenantId: credential.externalTenantId,
     secrets: readSecrets(credential.secrets),
