@@ -127,6 +127,18 @@ change.
 A mismatch here, usually `http` against `https` or a trailing slash, is the
 single most common reason an otherwise correct OAuth flow fails.
 
+Every deployment registers its own apps. The hosted instance's credentials
+belong to it and are not shared, so a self-hosted Open IpaaS needs its own
+pair for each provider it offers.
+
+**RD Station CRM.** Apps live in the RD Station App Store publisher area,
+<https://appstore.rdstation.com/pt-BR/publisher>, and logging in there takes
+an RD Station Marketing account, even though the app is for the CRM product.
+Create a private app for RD Station CRM, register
+`<NEXT_PUBLIC_APP_URL>/api/oauth/callback/rd-station-crm` as its callback,
+and set `RD_STATION_CRM_CLIENT_ID` and `RD_STATION_CRM_CLIENT_SECRET`. RD
+rotates the refresh token on every use, which Open IpaaS already handles.
+
 ## The site
 
 From the [openipaas-web](https://github.com/entende-ai/openipaas-web)

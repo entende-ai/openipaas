@@ -79,6 +79,8 @@ services:
       # a provider stays unusable until its pair is filled in.
       - CONTA_AZUL_CLIENT_ID=${CONTA_AZUL_CLIENT_ID:-}
       - CONTA_AZUL_CLIENT_SECRET=${CONTA_AZUL_CLIENT_SECRET:-}
+      - RD_STATION_CRM_CLIENT_ID=${RD_STATION_CRM_CLIENT_ID:-}
+      - RD_STATION_CRM_CLIENT_SECRET=${RD_STATION_CRM_CLIENT_SECRET:-}
       - TINY_CLIENT_ID=${TINY_CLIENT_ID:-}
       - TINY_CLIENT_SECRET=${TINY_CLIENT_SECRET:-}
     depends_on:
