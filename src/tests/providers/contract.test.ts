@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync } from 'fs';
+import path from 'path';
 import { PROVIDERS, listManifests, getManifest, createProvider, isKnownProvider } from '@/lib/providers/core/registry';
 import type { Operation, ResourceName } from '@/lib/providers/core/types';
 
@@ -101,6 +103,15 @@ describe.each(slugs)('provider contract: %s', (slug) => {
         expect(field.label.length).toBeGreaterThan(0);
       }
     }
+  });
+
+  it('points its logo at a file that exists', () => {
+    if (!manifest.logo) return;
+    // The catalog endpoint returns this path as is. Every provider once pointed
+    // at an SVG that was never added, and nobody noticed because no screen
+    // renders it yet.
+    expect(manifest.logo).toMatch(/^\/logos\//);
+    expect(existsSync(path.join('public', manifest.logo)), `${manifest.logo} is not in public/`).toBe(true);
   });
 
   it('exposes the provider instance through the registry', () => {

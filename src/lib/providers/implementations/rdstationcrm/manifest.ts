@@ -19,6 +19,7 @@ export const rdStationCrmManifest: ProviderManifest = {
   name: 'RD Station CRM',
   category: 'CRM',
   description: 'Brazilian sales CRM: contacts, companies, deals and pipelines.',
+  logo: '/logos/rdstation.com.png',
   docsUrl: 'https://developers.rdstation.com/reference/crm-v2-introduction',
   // No trailing slash: request paths are appended directly.
   baseUrl: 'https://api.rd.services/crm/v2',

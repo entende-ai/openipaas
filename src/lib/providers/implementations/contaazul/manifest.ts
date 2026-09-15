@@ -5,7 +5,7 @@ export const contaAzulManifest: ProviderManifest = {
   name: 'Conta Azul',
   category: 'ACCOUNTING',
   description: 'Brazilian cloud ERP for small and medium businesses.',
-  logo: '/logos/contaazul.svg',
+  logo: '/logos/contaazul.com.png',
   docsUrl: 'https://developers.contaazul.com',
   baseUrl: 'https://api-v2.contaazul.com/v1',
   auth: {
