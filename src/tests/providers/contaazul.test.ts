@@ -133,6 +133,76 @@ describe('ContaAzulProvider token refresh', () => {
   });
 });
 
+describe('BaseProvider early renewal', () => {
+  const NOW = 1_700_000_000_000;
+  const inMs = (ms: number) => new Date(NOW + ms);
+  const renewedFor2h = { accessToken: 'renewed-token', expiresAt: inMs(7_200_000) };
+
+  it('renews a token about to expire before using it', async () => {
+    const refreshCredential = vi.fn(async () => renewedFor2h);
+    const { stub, sut } = provider([{ json: [] }], { refreshCredential, now: () => NOW });
+
+    await sut.listSellers({ ...ctx, expiresAt: inMs(30_000) }, {});
+
+    expect(refreshCredential).toHaveBeenCalledTimes(1);
+    // No doomed call with the old token first.
+    expect(stub.calls).toHaveLength(1);
+    expect(stub.calls[0].auth).toBe('Bearer renewed-token');
+  });
+
+  it('leaves a token with time to spare alone', async () => {
+    const refreshCredential = vi.fn(async () => renewedFor2h);
+    const { stub, sut } = provider([{ json: [] }], { refreshCredential, now: () => NOW });
+
+    await sut.listSellers({ ...ctx, expiresAt: inMs(10 * 60_000) }, {});
+
+    expect(refreshCredential).not.toHaveBeenCalled();
+    expect(stub.calls[0].auth).toBe('Bearer live-token');
+  });
+
+  it('keeps using the renewed token for the rest of the operation', async () => {
+    const refreshCredential = vi.fn(async () => renewedFor2h);
+    const { stub, sut } = provider([{ status: 401 }, { json: [] }, { json: [] }], { refreshCredential, now: () => NOW });
+
+    await sut.listSellers(ctx, {});
+    await sut.listSellers(ctx, {});
+
+    expect(refreshCredential).toHaveBeenCalledTimes(1);
+    expect(stub.calls.map((c) => c.auth)).toEqual(['Bearer live-token', 'Bearer renewed-token', 'Bearer renewed-token']);
+  });
+
+  it('tells the refresher which token actually failed', async () => {
+    // The refresher decides "already renewed elsewhere" by comparing tokens, so
+    // it must be shown the one in use, not the one the request started with.
+    const refreshCredential = vi
+      .fn()
+      .mockResolvedValueOnce({ accessToken: 'renewed-1', expiresAt: inMs(7_200_000) })
+      .mockResolvedValueOnce({ accessToken: 'renewed-2', expiresAt: inMs(7_200_000) });
+    const { sut } = provider([{ status: 401 }, { json: [] }, { status: 401 }, { json: [] }], {
+      refreshCredential,
+      now: () => NOW,
+    });
+
+    await sut.listSellers(ctx, {});
+    await sut.listSellers(ctx, {});
+
+    expect(refreshCredential.mock.calls.map(([c]) => c.accessToken)).toEqual(['live-token', 'renewed-1']);
+  });
+
+  it('falls back to the current token when an early renewal fails', async () => {
+    const refreshCredential = vi.fn(async () => {
+      throw new Error('token endpoint unreachable');
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { stub, sut } = provider([{ json: [] }], { refreshCredential, now: () => NOW });
+
+    await sut.listSellers({ ...ctx, expiresAt: inMs(30_000) }, {});
+
+    expect(stub.calls[0].auth).toBe('Bearer live-token');
+    warn.mockRestore();
+  });
+});
+
 describe('ContaAzulProvider guards', () => {
   it('rejects an empty bulk id list before calling the API', async () => {
     const { stub, sut } = provider([{ json: {} }]);

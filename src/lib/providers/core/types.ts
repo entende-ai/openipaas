@@ -115,6 +115,8 @@ export interface ProviderContext {
   provider: string;
   accessToken: string;
   refreshToken?: string | null;
+  /** When `accessToken` stops working, if the provider said. Drives early renewal. */
+  expiresAt?: Date | null;
   /** Per-tenant host, e.g. a Salesforce instance_url or a Shopify shop domain. */
   instanceUrl?: string | null;
   /** Per-tenant path segment, e.g. a Nuvemshop store id. */

@@ -1,8 +1,9 @@
+import type { OAuthCredential } from '@prisma/client';
 import prisma from './prisma';
-import { decrypt, encrypt, encryptNullable } from './crypto';
+import { decrypt, decryptNullable, encrypt, encryptNullable } from './crypto';
 import { getManifest } from './providers/core/registry';
 import { ProviderError } from './providers/core/errors';
-import type { ProviderContext } from './providers/core/types';
+import type { ProviderContext, ProviderManifest } from './providers/core/types';
 
 /**
  * Provider-agnostic OAuth2 refresh, driven entirely by the manifest.
@@ -10,33 +11,157 @@ import type { ProviderContext } from './providers/core/types';
  * Adding an OAuth provider needs no change here: the manifest supplies the token
  * URL and whether the client credentials go in an Authorization: Basic header or
  * in the form body.
+ *
+ * Refreshes are serialized per credential, because some providers (RD Station
+ * CRM among them) rotate the refresh token: every use returns a new one and
+ * invalidates the old. When a token expires, every request in flight gets a 401
+ * at the same moment and each tries to refresh. Unserialized, the first renews
+ * and the rest present a refresh token that is already dead, so a healthy
+ * account answers "please reconnect". Providers that detect refresh token reuse
+ * go further and revoke the whole token family, which disconnects the account
+ * for real.
+ *
+ * Two layers, because they fail differently:
+ *   - in process, concurrent callers share one promise, so a burst costs one
+ *     token request and no lock contention;
+ *   - across instances, a Postgres advisory lock serializes the rest, and the
+ *     holder re-reads the row before refreshing, so a waiter that finds the
+ *     token already renewed uses it instead of spending the refresh token again.
+ *
+ * The lock lives in Postgres rather than Redis because Postgres is where the
+ * token is stored and is always present. Redis is optional and falls back to
+ * memory when absent, which would silently drop the cross-instance guarantee on
+ * exactly the deployments that run several instances without it.
  */
-export async function refreshCredential(
-  ctx: ProviderContext
-): Promise<{ accessToken: string; refreshToken?: string | null }> {
-  const credential = await prisma.oAuthCredential.findUnique({
-    where: { id: ctx.credentialId },
-    include: { linkedAccount: true },
-  });
 
-  if (!credential) {
-    throw new ProviderError('CONFIG_ERROR', 'The credential for this account no longer exists.');
-  }
+export interface RenewedCredential {
+  accessToken: string;
+  refreshToken?: string | null;
+  expiresAt?: Date | null;
+}
 
-  const manifest = getManifest(credential.linkedAccount.provider);
+/**
+ * Upper bound on the token endpoint call. It runs while the lock is held, so a
+ * hung provider must not be able to hold it indefinitely.
+ */
+export const TOKEN_REQUEST_TIMEOUT_MS = 10_000;
 
+/**
+ * A waiter spends at most one token request queued behind the holder, then at
+ * most one of its own. Prisma's default of 5s would abort the waiter while the
+ * holder is still legitimately working, and aborting a holder after the provider
+ * has rotated the token but before the commit loses that token for good.
+ */
+export const REFRESH_TRANSACTION_TIMEOUT_MS = 2 * TOKEN_REQUEST_TIMEOUT_MS + 5_000;
+
+/**
+ * First key of the two-key advisory lock. Postgres keeps the two-key and
+ * single-key forms in separate key spaces, so this cannot collide with the
+ * single-key lock `prisma migrate` takes.
+ */
+export const REFRESH_LOCK_NAMESPACE = 72_070_001;
+
+const inFlight = new Map<string, Promise<RenewedCredential>>();
+
+/**
+ * Renews the credential behind `ctx`, where `ctx.accessToken` is the token the
+ * caller found expired. Safe to call concurrently from any number of requests
+ * and instances: the refresh token is spent once.
+ */
+export function refreshCredential(ctx: ProviderContext): Promise<RenewedCredential> {
+  const pending = inFlight.get(ctx.credentialId);
+  if (pending) return pending;
+
+  const run = refreshWithLock(ctx).finally(() => inFlight.delete(ctx.credentialId));
+  inFlight.set(ctx.credentialId, run);
+  return run;
+}
+
+/**
+ * The cross-instance half on its own. Exported for the integration test, which
+ * has to bypass the in-process layer to prove the lock does its job.
+ */
+export async function refreshWithLock(ctx: ProviderContext): Promise<RenewedCredential> {
+  return prisma.$transaction(
+    async (tx) => {
+      // Released when the transaction ends, commit or rollback, so it cannot leak.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${REFRESH_LOCK_NAMESPACE}::int4, hashtext(${ctx.credentialId}::text))`;
+
+      const credential = await tx.oAuthCredential.findUnique({
+        where: { id: ctx.credentialId },
+        include: { linkedAccount: true },
+      });
+
+      if (!credential) {
+        throw new ProviderError('CONFIG_ERROR', 'The credential for this account no longer exists.');
+      }
+
+      // Whoever held the lock before us may have renewed already. Then the token
+      // the caller found expired is no longer the stored one: the stored one is
+      // the answer, and the refresh token, possibly rotated, stays unspent.
+      const stored = decrypt(credential.accessToken);
+      if (stored !== ctx.accessToken) {
+        return {
+          accessToken: stored,
+          refreshToken: decryptNullable(credential.refreshToken),
+          expiresAt: credential.expiresAt,
+        };
+      }
+
+      const manifest = getManifest(credential.linkedAccount.provider);
+
+      if (manifest.auth.type !== 'OAUTH2') {
+        // API-key providers cannot refresh: a 401 means the key itself is wrong.
+        throw new ProviderError('TOKEN_EXPIRED', `The ${manifest.name} credentials were rejected. Please reconnect the account.`, {
+          provider: manifest.slug,
+        });
+      }
+
+      const refreshToken = decryptNullable(credential.refreshToken);
+      if (!refreshToken) {
+        throw new ProviderError('TOKEN_EXPIRED', `The ${manifest.name} session expired. Please reconnect the account.`, {
+          provider: manifest.slug,
+        });
+      }
+
+      const data = await requestNewTokens(manifest, credential, refreshToken);
+      const expiresAt = data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : null;
+
+      try {
+        await tx.oAuthCredential.update({
+          where: { id: credential.id },
+          data: {
+            accessToken: encrypt(data.access_token),
+            // Providers that rotate refresh tokens send a new one; others omit it.
+            refreshToken: data.refresh_token ? encrypt(data.refresh_token) : credential.refreshToken,
+            expiresAt,
+          },
+        });
+      } catch (err) {
+        // Past the point of no return: a rotating provider has already
+        // invalidated the old refresh token, and the new one exists only here.
+        console.error(
+          `[TokenRefresh] ${manifest.slug} credential ${credential.id} was renewed upstream but could not be saved. ` +
+            'If this provider rotates refresh tokens, the account will need to be reconnected.',
+          (err as Error).message
+        );
+        throw err;
+      }
+
+      console.log(`[TokenRefresh] ${manifest.slug} credential ${credential.id} renewed.`);
+      return { accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken, expiresAt };
+    },
+    { timeout: REFRESH_TRANSACTION_TIMEOUT_MS }
+  );
+}
+
+async function requestNewTokens(
+  manifest: ProviderManifest,
+  credential: OAuthCredential,
+  refreshToken: string
+): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> {
   if (manifest.auth.type !== 'OAUTH2') {
-    // API-key providers cannot refresh: a 401 means the key itself is wrong.
-    throw new ProviderError('TOKEN_EXPIRED', `The ${manifest.name} credentials were rejected. Please reconnect the account.`, {
-      provider: manifest.slug,
-    });
-  }
-
-  const refreshToken = credential.refreshToken ? decrypt(credential.refreshToken) : null;
-  if (!refreshToken) {
-    throw new ProviderError('TOKEN_EXPIRED', `The ${manifest.name} session expired. Please reconnect the account.`, {
-      provider: manifest.slug,
-    });
+    throw new ProviderError('CONFIG_ERROR', `${manifest.name} does not use an OAuth flow.`);
   }
 
   const { clientId, clientSecret } = resolveOAuthClient(manifest.slug, credential);
@@ -51,7 +176,12 @@ export async function refreshCredential(
     form.set('client_secret', clientSecret);
   }
 
-  const response = await fetch(manifest.auth.tokenUrl, { method: 'POST', headers, body: form });
+  const response = await fetch(manifest.auth.tokenUrl, {
+    method: 'POST',
+    headers,
+    body: form,
+    signal: AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS),
+  });
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
@@ -62,21 +192,7 @@ export async function refreshCredential(
     });
   }
 
-  const data = await response.json();
-  const expiresAt = data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : null;
-
-  await prisma.oAuthCredential.update({
-    where: { id: credential.id },
-    data: {
-      accessToken: encrypt(data.access_token),
-      // Providers that rotate refresh tokens send a new one; others omit it.
-      refreshToken: data.refresh_token ? encrypt(data.refresh_token) : credential.refreshToken,
-      expiresAt,
-    },
-  });
-
-  console.log(`[TokenRefresh] ${manifest.slug} credential ${credential.id} renewed.`);
-  return { accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken };
+  return response.json();
 }
 
 /**
