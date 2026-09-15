@@ -1,4 +1,4 @@
-import type { OAuthCredential } from '@prisma/client';
+import type { OAuthCredential, Prisma } from '@prisma/client';
 import prisma from './prisma';
 import { decrypt, decryptNullable, encrypt, encryptNullable } from './crypto';
 import { getManifest } from './providers/core/registry';
@@ -61,6 +61,15 @@ export const REFRESH_TRANSACTION_TIMEOUT_MS = 2 * TOKEN_REQUEST_TIMEOUT_MS + 5_0
  */
 export const REFRESH_LOCK_NAMESPACE = 72_070_001;
 
+/**
+ * Serializes every writer of one credential: a refresh, and a reconnect that
+ * replaces its tokens. Released when the transaction ends, commit or rollback,
+ * so it cannot leak.
+ */
+async function lockCredential(tx: Prisma.TransactionClient, credentialId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${REFRESH_LOCK_NAMESPACE}::int4, hashtext(${credentialId}::text))`;
+}
+
 const inFlight = new Map<string, Promise<RenewedCredential>>();
 
 /**
@@ -84,8 +93,7 @@ export function refreshCredential(ctx: ProviderContext): Promise<RenewedCredenti
 export async function refreshWithLock(ctx: ProviderContext): Promise<RenewedCredential> {
   return prisma.$transaction(
     async (tx) => {
-      // Released when the transaction ends, commit or rollback, so it cannot leak.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${REFRESH_LOCK_NAMESPACE}::int4, hashtext(${ctx.credentialId}::text))`;
+      await lockCredential(tx, ctx.credentialId);
 
       const credential = await tx.oAuthCredential.findUnique({
         where: { id: ctx.credentialId },
@@ -222,7 +230,16 @@ export function resolveOAuthClient(
   return { clientId, clientSecret };
 }
 
-/** Stores a freshly issued credential from an authorization-code exchange. */
+/**
+ * Stores a freshly issued credential from an authorization-code exchange.
+ *
+ * Replacing an existing credential takes the same lock as a refresh. Otherwise
+ * a refresh already in flight when the user reconnects finishes afterwards and
+ * writes back tokens from the old grant over the new ones, which a provider
+ * that revoked the old grant on reconnect then rejects. With the lock, the
+ * reconnect waits and writes last; a refresh that starts after it re-reads the
+ * row and finds the new token already there.
+ */
 export async function persistNewCredential(params: {
   linkedAccountId: string;
   authType: string;
@@ -247,7 +264,15 @@ export async function persistNewCredential(params: {
   };
 
   if (existing) {
-    return prisma.oAuthCredential.update({ where: { id: existing.id }, data });
+    return prisma.$transaction(
+      async (tx) => {
+        await lockCredential(tx, existing.id);
+        return tx.oAuthCredential.update({ where: { id: existing.id }, data });
+      },
+      { timeout: REFRESH_TRANSACTION_TIMEOUT_MS }
+    );
   }
+  // Nothing to race with: no refresh can be running on a credential that does
+  // not exist yet.
   return prisma.oAuthCredential.create({ data: { ...data, linkedAccountId: params.linkedAccountId } });
 }

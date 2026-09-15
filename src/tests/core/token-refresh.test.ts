@@ -49,6 +49,13 @@ const db = vi.hoisted(() => {
       state.txOptions = options;
       return fn(tx);
     }),
+    oAuthCredential: {
+      findFirst: vi.fn(async () => (state.row ? { ...state.row } : null)),
+      create: vi.fn(async ({ data }: { data: Partial<Row> }) => {
+        state.order.push('create');
+        return data;
+      }),
+    },
   };
 
   return { state, tx, client };
@@ -57,6 +64,7 @@ const db = vi.hoisted(() => {
 vi.mock('@/lib/prisma', () => ({ default: db.client }));
 
 import {
+  persistNewCredential,
   refreshCredential,
   REFRESH_LOCK_NAMESPACE,
   REFRESH_TRANSACTION_TIMEOUT_MS,
@@ -224,5 +232,35 @@ describe('refreshCredential', () => {
     const result = await refreshCredential(ctx());
 
     expect(result.expiresAt!.getTime()).toBeGreaterThanOrEqual(before + 7_200_000);
+  });
+});
+
+describe('persistNewCredential', () => {
+  const reconnect = { linkedAccountId: 'account-1', authType: 'OAUTH2', accessToken: 'reconnected', refreshToken: 'rt-new' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.state.order = [];
+    seed();
+  });
+
+  it('replaces an existing credential under the refresh lock', async () => {
+    await persistNewCredential(reconnect);
+
+    // Without the lock, a refresh in flight would write the old grant's tokens
+    // back over these once it finished.
+    expect(db.state.order).toEqual(['lock', 'write']);
+    expect(db.state.lockArgs.slice(1)).toEqual([REFRESH_LOCK_NAMESPACE, 'cred-1']);
+    expect(db.state.txOptions).toEqual({ timeout: REFRESH_TRANSACTION_TIMEOUT_MS });
+    expect(decrypt(db.state.row!.accessToken)).toBe('reconnected');
+  });
+
+  it('creates a first credential without taking a lock', async () => {
+    db.state.row = null;
+
+    await persistNewCredential(reconnect);
+
+    expect(db.state.order).toEqual(['create']);
+    expect(db.tx.$executeRaw).not.toHaveBeenCalled();
   });
 });
