@@ -217,7 +217,12 @@ export const openApiSpec = {
         security: [],
         parameters: [
           { name: 'category', in: 'query', schema: { type: 'string', enum: ['ACCOUNTING', 'ECOMMERCE', 'CRM', 'PAYMENTS', 'FISCAL', 'HRIS'] } },
-          { name: 'enabled', in: 'query', schema: { type: 'boolean' } },
+          {
+            name: 'enabled',
+            in: 'query',
+            description: 'true lists only the integrations an account can be connected to today.',
+            schema: { type: 'boolean' },
+          },
         ],
         responses: { '200': { description: 'The integration catalog' } },
       },

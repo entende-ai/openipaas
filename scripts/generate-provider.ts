@@ -62,7 +62,9 @@ export const ${dirName}Manifest: ProviderManifest = {
   capabilities: {},
 
   passthrough: true,
-  enabled: false, // flip to true once real capabilities ship
+  // Offered in the connect dialog. Flip to true once connecting an account works
+  // end to end; passthrough alone is enough, capabilities can come later.
+  enabled: false,
 };
 `;
 
