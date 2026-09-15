@@ -97,7 +97,12 @@ export interface ProviderManifest {
   capabilities: CapabilityMap;
   /** Whether the raw upstream API is exposed through /passthrough. */
   passthrough: boolean;
-  /** false while the provider is still a stub. */
+  /**
+   * Offered for connection in the dashboard and listed by /providers?enabled=true.
+   * Turn it on once connecting an account has worked end to end against the
+   * real upstream. Unified resources are not required: passthrough alone makes a
+   * connection useful.
+   */
   enabled: boolean;
 }
 

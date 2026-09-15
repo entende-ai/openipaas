@@ -13,7 +13,9 @@ export interface ConnectableProvider {
   slug: string
   name: string
   authType: 'OAUTH2' | 'API_KEY' | 'CUSTOM'
-  enabled: boolean
+  /** From connectionOffer(): whether it can be picked, and what to say beside it. */
+  connectable: boolean
+  note: string | null
   fields: { key: string; label: string; required: boolean; secret: boolean }[]
 }
 
@@ -76,7 +78,7 @@ export function ConnectErpDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Connect an ERP account</DialogTitle>
+          <DialogTitle>Connect an account</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
@@ -104,9 +106,9 @@ export function ConnectErpDialog({
               </SelectTrigger>
               <SelectContent>
                 {providers.map((provider) => (
-                  <SelectItem key={provider.slug} value={provider.slug} disabled={!provider.enabled}>
+                  <SelectItem key={provider.slug} value={provider.slug} disabled={!provider.connectable}>
                     {provider.name}
-                    {provider.enabled ? '' : ' (passthrough only)'}
+                    {provider.note ? ` (${provider.note})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

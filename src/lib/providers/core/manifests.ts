@@ -29,6 +29,24 @@ export function findManifest(slug: string): ProviderManifest | undefined {
   return MANIFESTS[normalizeSlug(slug)];
 }
 
+/** Whether the provider maps any upstream data onto a unified resource. */
+export function hasUnifiedResources(manifest: ProviderManifest): boolean {
+  return Object.values(manifest.capabilities).some((operations) => (operations?.length ?? 0) > 0);
+}
+
+/**
+ * How the connect dialog offers a provider.
+ *
+ * `enabled` alone decides whether it can be connected. The note only describes
+ * what a connection gets you: a provider with no unified resources yet is still
+ * worth connecting when passthrough reaches its raw API.
+ */
+export function connectionOffer(manifest: ProviderManifest): { connectable: boolean; note: string | null } {
+  if (!manifest.enabled) return { connectable: false, note: 'coming soon' };
+  if (!hasUnifiedResources(manifest) && manifest.passthrough) return { connectable: true, note: 'passthrough only' };
+  return { connectable: true, note: null };
+}
+
 export function listManifests(
   opts: { category?: ProviderCategory; enabledOnly?: boolean } = {}
 ): ProviderManifest[] {

@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma'
 import { ConnectErpDialog } from './components/ConnectErpDialog'
 import { CopyTokenButton } from './components/CopyTokenButton'
 import { TestApiDialog } from './components/TestApiDialog'
-import { listManifests } from '@/lib/providers/core/manifests'
+import { connectionOffer, listManifests } from '@/lib/providers/core/manifests'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -29,7 +29,7 @@ export default async function LinkedAccountsPage() {
     slug: m.slug,
     name: m.name,
     authType: m.auth.type,
-    enabled: m.enabled,
+    ...connectionOffer(m),
     fields: m.auth.type === 'OAUTH2' ? [] : m.auth.fields.map((f) => ({ ...f })),
   }))
 
