@@ -1,10 +1,11 @@
-# Debian, not Alpine. Alpine is musl, and the lockfile pins
-# @tailwindcss/oxide-linux-x64-gnu, the glibc build, added in 690b4b9 to fix
-# the Vercel build. On musl that binding cannot load and `next build` dies with
-# "Cannot find module @tailwindcss/oxide-linux-x64-musl".
-#
-# Prisma has the same split: on Alpine it fails to detect libssl and falls back
+# Debian, not Alpine. On Alpine, Prisma fails to detect libssl and falls back
 # to an openssl-1.1.x engine that does not match the system.
+#
+# Alpine also used to fail earlier, in `next build`, with "Cannot find module
+# @tailwindcss/oxide-linux-x64-musl": the lockfile had lost every platform
+# binding except the glibc x64 and Windows ones (npm bug 4828). That broke arm64
+# and Apple Silicon too. src/tests/core/lockfile.test.ts now fails the build if
+# any binding goes missing again.
 #
 # Every stage shares this base. Prisma picks its query engine by detecting the
 # installed OpenSSL, and it does that during `prisma generate` at build time,
