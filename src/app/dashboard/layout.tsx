@@ -42,7 +42,11 @@ export default async function DashboardLayout({
 
         <MobileNav />
 
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">{children}</main>
+        {/* One place decides how wide a page is. Every page used to carry its
+            own max-width, and the one that forgot was noticeably wider. */}
+        <main className="flex-1 p-4 md:p-8">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
       </div>
     </div>
   )

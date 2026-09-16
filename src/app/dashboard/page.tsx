@@ -9,6 +9,7 @@ import { connectionHealth } from '@/lib/dashboard/connections'
 import { onboardingComplete, onboardingSteps } from '@/lib/dashboard/onboarding'
 import { findManifest } from '@/lib/providers/core/manifests'
 import { pickActiveCredential } from '@/lib/credentials'
+import { PageHeader } from '@/components/dashboard/PageHeader'
 
 /**
  * Where the console opens.
@@ -53,11 +54,8 @@ export default async function OverviewPage() {
     .filter((row) => row.health.needsAttention)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Overview</h2>
-        <p className="text-muted-foreground">One API over many business systems. Here is the state of yours.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Overview" description="One API over many business systems. Here is the state of yours." />
 
       {!onboardingComplete(steps) && (
         <Card>
