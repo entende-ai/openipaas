@@ -6,12 +6,19 @@ import { Button } from '@/components/ui/button'
 import { CreateClientDialog } from './components/CreateClientDialog'
 import { GenerateKeyButton } from './components/GenerateKeyButton'
 import { RevokeKeyButton } from './components/RevokeKeyButton'
+import { currentUser } from '@/lib/auth-session'
+import { canDestroy } from '@/lib/dashboard/roles'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
 export const dynamic = 'force-dynamic'
 
 export default async function ClientsPage() {
+  const me = await currentUser()
+  // Revoking is one-way for whoever is calling with the key, so it is an owner's
+  // decision. Members can still issue keys and see which ones exist.
+  const mayRevoke = canDestroy(me?.role)
+
   const clients = await prisma.client.findMany({
     include: {
       apiKeys: { orderBy: { createdAt: 'desc' } },
@@ -96,7 +103,9 @@ export default async function ClientsPage() {
                           <Badge variant={key.lastUsedAt ? 'default' : 'secondary'}>
                             {key.lastUsedAt ? 'In use' : 'Unused'}
                           </Badge>
-                          <RevokeKeyButton apiKeyId={key.id} keyLabel={`${key.keyPrefix ?? 'this key'}…`} />
+                          {mayRevoke && (
+                            <RevokeKeyButton apiKeyId={key.id} keyLabel={`${key.keyPrefix ?? 'this key'}…`} />
+                          )}
                         </div>
                       </div>
                     ))}

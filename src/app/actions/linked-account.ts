@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { toStoredCredential } from '@/lib/credentials'
 import { getManifest, isKnownProvider } from '@/lib/providers/core/registry'
-import { requireDashboardSession } from '@/lib/auth-session'
+import { requireDashboardSession, requireOwner } from '@/lib/auth-session'
 
 /**
  * Connects an account whose provider authenticates with static credentials
@@ -67,9 +67,37 @@ export async function connectErpAccount(formData: FormData) {
   return { success: true, linkedAccount: { id: linkedAccount.id, accountToken: linkedAccount.accountToken } }
 }
 
+/**
+ * Disconnecting cannot be undone from here: reconnecting means the end customer
+ * authorizing the app again, which is a phone call, not a click.
+ */
 export async function deleteLinkedAccount(id: string) {
-  await requireDashboardSession()
+  await requireOwner()
+
+  // Read it first, so a request naming an id that is not there answers the same
+  // way whether it never existed or was already deleted.
+  const account = await prisma.linkedAccount.findUnique({ where: { id }, select: { id: true } })
+  if (!account) return { error: 'That connection no longer exists.' }
+
   await prisma.linkedAccount.delete({ where: { id } })
   revalidatePath('/dashboard/linked-accounts')
   return { success: true }
+}
+
+/**
+ * Hands the account token to the screen, on request.
+ *
+ * It is a live credential, so it is fetched when someone asks rather than
+ * rendered into a page anyone with a session can open.
+ */
+export async function revealAccountToken(id: string) {
+  await requireOwner()
+
+  const account = await prisma.linkedAccount.findUnique({
+    where: { id },
+    select: { accountToken: true },
+  })
+  if (!account) return { error: 'That connection no longer exists.' }
+
+  return { token: account.accountToken }
 }

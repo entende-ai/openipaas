@@ -20,6 +20,9 @@ model DashboardUser {
   name  String?
   /// scrypt, salt included. The plaintext never leaves the login form.
   passwordHash String
+  /// OWNER or MEMBER. A string rather than an enum so adding a role later is a
+  /// code change and not a migration on a table every session reads.
+  role         String    @default("MEMBER")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   lastLoginAt  DateTime?

@@ -10,6 +10,8 @@ import { connectionAbilities, connectionHealth, maskToken } from '@/lib/dashboar
 import { connectionOffer, findManifest, listManifests } from '@/lib/providers/core/manifests'
 import { pickActiveCredential } from '@/lib/credentials'
 import { playgroundOperations } from '@/lib/dashboard/playground'
+import { currentUser } from '@/lib/auth-session'
+import { canDestroy, canRevealAccountToken } from '@/lib/dashboard/roles'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -24,6 +26,12 @@ const STATE_VARIANT = {
 } as const
 
 export default async function LinkedAccountsPage() {
+  const me = await currentUser()
+  // Disconnecting means the end customer has to authorize the app again, and the
+  // account token is a live credential. Both are an owner's call.
+  const mayDisconnect = canDestroy(me?.role)
+  const mayCopyToken = canRevealAccountToken(me?.role)
+
   const [accounts, clients] = await Promise.all([
     prisma.linkedAccount.findMany({
       include: { client: true, credentials: { select: { createdAt: true, expiresAt: true, refreshToken: true } } },
@@ -128,7 +136,7 @@ export default async function LinkedAccountsPage() {
                   <code className="rounded bg-muted/60 px-2 py-1 font-mono text-xs">
                     {maskToken(account.accountToken)}
                   </code>
-                  <CopyTokenButton token={account.accountToken} />
+                  {mayCopyToken && <CopyTokenButton linkedAccountId={account.id} />}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -141,10 +149,12 @@ export default async function LinkedAccountsPage() {
                     examples={manifest?.passthroughExamples ?? []}
                     docsUrl={manifest?.docsUrl}
                   />
-                  <DisconnectButton
-                    linkedAccountId={account.id}
-                    label={`${manifest?.name ?? account.provider} and ${account.client.name}`}
-                  />
+                  {mayDisconnect && (
+                    <DisconnectButton
+                      linkedAccountId={account.id}
+                      label={`${manifest?.name ?? account.provider} and ${account.client.name}`}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
