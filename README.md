@@ -98,6 +98,8 @@ Deploying for real is covered in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## 📡 Using the API
 
+Start with the **[integration guide](docs/INTEGRATION.md)**: client, key, connection, first call, and what each provider does differently. The reference below is the short version; the live API reference is at `/docs`.
+
 Every request carries two headers:
 
 ```bash

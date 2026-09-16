@@ -175,6 +175,9 @@ export const openApiSpec = {
     description: [
       'One English-first, strongly-typed API over many business platforms.',
       '',
+      'New here? The [integration guide](https://github.com/entende-ai/openipaas/blob/master/docs/INTEGRATION.md)',
+      'walks through client, key, connection and first call. This page is the field by field reference.',
+      '',
       '## Authentication',
       'Every request needs two headers:',
       '- `Authorization: Bearer <api_key>`, identifies your account.',
