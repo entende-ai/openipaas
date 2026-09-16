@@ -38,6 +38,17 @@ export function ConnectErpDialog({
 
   const selected = useMemo(() => providers.find((p) => p.slug === selectedSlug), [providers, selectedSlug])
 
+  // The form posts ids and slugs; a person reads names. Base UI renders the
+  // value itself unless it is given the labels to go with it.
+  const clientLabels = useMemo(
+    () => Object.fromEntries(clients.map((client) => [client.id, client.name])),
+    [clients]
+  )
+  const providerLabels = useMemo(
+    () => Object.fromEntries(providers.map((provider) => [provider.slug, provider.name])),
+    [providers]
+  )
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
@@ -84,7 +95,9 @@ export function ConnectErpDialog({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="clientId">Client</Label>
-            <Select name="clientId">
+            {/* `items` is what makes the trigger read "Ladigroup" instead of the
+                uuid it posts. Without it Base UI shows the raw value. */}
+            <Select name="clientId" items={clientLabels}>
               <SelectTrigger id="clientId">
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
@@ -100,7 +113,11 @@ export function ConnectErpDialog({
 
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
-            <Select name="provider" onValueChange={(value) => setSelectedSlug(typeof value === 'string' ? value : '')}>
+            <Select
+              name="provider"
+              items={providerLabels}
+              onValueChange={(value) => setSelectedSlug(typeof value === 'string' ? value : '')}
+            >
               <SelectTrigger id="provider">
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>

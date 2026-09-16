@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
 import { connectionHealth, maskToken, formatDuration, connectionAbilities } from '@/lib/dashboard/connections';
 import {
   playgroundOperations,
@@ -156,6 +157,32 @@ describe('choosing a path', () => {
     expect(chosenPath(CUSTOM_PATH, '/whatever')).toBe('/whatever');
     // An empty text box then fails validation, which says what to type.
     expect(normalizePassthroughPath(chosenPath(CUSTOM_PATH, ''))).toHaveProperty('error');
+  });
+});
+
+describe('select labels', () => {
+  /**
+   * Base UI renders the selected value itself, so a Select whose values are ids
+   * shows a uuid on the trigger until it is handed `items`. That is what the
+   * connect dialog did: "Client: b2946848-b0d3-474b-984d-42b57ad34bac".
+   *
+   * There is no DOM in this suite to render it in, and adding one means adding
+   * jsdom and testing-library to a lockfile that has already cost a release, so
+   * this reads the source instead. It is a guard, not a render test.
+   */
+  const FILES = [
+    'src/app/dashboard/linked-accounts/components/ConnectErpDialog.tsx',
+    'src/app/dashboard/linked-accounts/components/PlaygroundDialog.tsx',
+  ];
+
+  it.each(FILES)('gives every Select the labels for its values: %s', (file) => {
+    const source = readFileSync(file, 'utf8');
+    const opens = [...source.matchAll(/<Select\b(?![A-Za-z])([\s\S]*?)>/g)];
+
+    expect(opens.length, `${file} has no Select to check`).toBeGreaterThan(0);
+    for (const [, attributes] of opens) {
+      expect(attributes, `a Select in ${file} renders raw values`).toMatch(/items=/);
+    }
   });
 });
 
