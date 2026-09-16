@@ -135,6 +135,7 @@ export function PlaygroundDialog({
                 {options.length > 1 && (
                   <Select
                     value={choice}
+                    items={Object.fromEntries(options.map((option) => [option.value, option.label]))}
                     onValueChange={(value) => setChoice(typeof value === 'string' ? value : CUSTOM_PATH)}
                   >
                     <SelectTrigger id="path" className="w-full">
