@@ -6,8 +6,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { runPlaygroundRequest, type PlaygroundResult } from '@/app/actions/test-api'
-import { explainResult, type PlaygroundOperation } from '@/lib/dashboard/playground'
+import {
+  chosenPath,
+  CUSTOM_PATH,
+  explainResult,
+  initialPathChoice,
+  pathOptions,
+  type PlaygroundOperation,
+} from '@/lib/dashboard/playground'
 
 /**
  * Runs a real request against a connected account.
@@ -39,9 +47,13 @@ export function PlaygroundDialog({
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(operations[0]?.id ?? (passthrough ? 'passthrough' : ''))
   // Starting on a real path beats starting on a slash nobody knows how to fill.
-  const [path, setPath] = useState(examples[0]?.path ?? '/')
+  const [choice, setChoice] = useState(() => initialPathChoice(examples))
+  const [typedPath, setTypedPath] = useState('')
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<PlaygroundResult | null>(null)
+
+  const options = pathOptions(examples)
+  const path = chosenPath(choice, typedPath)
 
   const choices = [
     ...operations.map((operation) => ({ id: operation.id, label: operation.label, hint: `GET /api/unified/v1${operation.path}` })),
@@ -119,31 +131,41 @@ export function PlaygroundDialog({
             {selected === 'passthrough' && (
               <div className="space-y-2">
                 <Label htmlFor="path">Path</Label>
-                <Input
-                  id="path"
-                  value={path}
-                  onChange={(event) => setPath(event.target.value)}
-                  placeholder="/contacts?limit=5"
-                  spellCheck={false}
-                />
-                {examples.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Try:</span>
-                    {examples.map((example) => (
-                      <button
-                        key={example.path}
-                        type="button"
-                        onClick={() => setPath(example.path)}
-                        className={`rounded-full border px-2.5 py-1 font-mono text-xs transition-colors ${
-                          path === example.path
-                            ? 'border-foreground/25 bg-muted text-foreground'
-                            : 'border-transparent bg-muted/40 text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {example.path}
-                      </button>
-                    ))}
-                  </div>
+
+                {options.length > 1 && (
+                  <Select
+                    value={choice}
+                    onValueChange={(value) => setChoice(typeof value === 'string' ? value : CUSTOM_PATH)}
+                  >
+                    <SelectTrigger id="path" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {options.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <span className="flex w-full items-center justify-between gap-4">
+                            <span>{option.label}</span>
+                            {option.value !== CUSTOM_PATH && (
+                              <code className="font-mono text-xs text-muted-foreground">{option.value}</code>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Typed paths cover everything a manifest cannot list, which is
+                    most of a provider's API. */}
+                {choice === CUSTOM_PATH && (
+                  <Input
+                    id={options.length > 1 ? 'custom-path' : 'path'}
+                    value={typedPath}
+                    onChange={(event) => setTypedPath(event.target.value)}
+                    placeholder="/contacts?limit=5"
+                    spellCheck={false}
+                    autoFocus={options.length > 1}
+                  />
                 )}
 
                 <p className="text-xs text-muted-foreground">
