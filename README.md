@@ -130,6 +130,18 @@ curl https://your-host/api/unified/v1/passthrough/pessoas?pagina=1 \
   -H "X-Account-Token: ..."
 ```
 
+## 🤖 MCP server
+
+The same deployment is a remote MCP server at `/api/mcp`, so an AI agent can use a connected account without anyone writing a client:
+
+```bash
+claude mcp add --transport http openipaas https://your-host/api/mcp \
+  --header "Authorization: Bearer oip_live_..." \
+  --header "X-Account-Token: <connected account token>"
+```
+
+Tools are derived from the account's capability matrix, so they differ per connected provider and nothing is written per provider. See the [integration guide](docs/INTEGRATION.md#using-it-from-an-ai-agent).
+
 ## 🌱 Sandbox data
 
 An empty CRM makes for a bad first call: every list comes back `{"data": []}` and there is no way to tell a working integration from a broken one. This fills a trial account with fake companies, contacts and deals, through the unified API itself:

@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { existsSync } from 'fs';
 import path from 'path';
 import { PROVIDERS, listManifests, getManifest, createProvider, isKnownProvider } from '@/lib/providers/core/registry';
-import type { Operation, ResourceName } from '@/lib/providers/core/types';
+import { RESOURCE_METHODS } from '@/lib/providers/core/operations';
+import type { Operation } from '@/lib/providers/core/types';
 
 /**
  * Contract suite: runs against every provider in the registry.
@@ -12,39 +13,6 @@ import type { Operation, ResourceName } from '@/lib/providers/core/types';
  * read the whole implementation.
  */
 
-const RESOURCE_METHODS: Record<string, { resource: ResourceName; operation: Operation }> = {
-  listCustomers: { resource: 'customers', operation: 'list' },
-  getCustomer: { resource: 'customers', operation: 'get' },
-  createCustomer: { resource: 'customers', operation: 'create' },
-  updateCustomer: { resource: 'customers', operation: 'update' },
-  bulkActivateCustomers: { resource: 'customers', operation: 'bulkActivate' },
-  bulkDeactivateCustomers: { resource: 'customers', operation: 'bulkDeactivate' },
-  bulkDeleteCustomers: { resource: 'customers', operation: 'bulkDelete' },
-  listProducts: { resource: 'products', operation: 'list' },
-  getProduct: { resource: 'products', operation: 'get' },
-  createProduct: { resource: 'products', operation: 'create' },
-  updateProduct: { resource: 'products', operation: 'update' },
-  deleteProduct: { resource: 'products', operation: 'delete' },
-  listCategories: { resource: 'categories', operation: 'list' },
-  listBrands: { resource: 'brands', operation: 'list' },
-  listUnits: { resource: 'units', operation: 'list' },
-  listSales: { resource: 'sales', operation: 'list' },
-  getSale: { resource: 'sales', operation: 'get' },
-  createSale: { resource: 'sales', operation: 'create' },
-  getSalePdf: { resource: 'sales', operation: 'pdf' },
-  bulkDeleteSales: { resource: 'sales', operation: 'bulkDelete' },
-  listSellers: { resource: 'sellers', operation: 'list' },
-  listContacts: { resource: 'contacts', operation: 'list' },
-  getContact: { resource: 'contacts', operation: 'get' },
-  createContact: { resource: 'contacts', operation: 'create' },
-  listCompanies: { resource: 'companies', operation: 'list' },
-  getCompany: { resource: 'companies', operation: 'get' },
-  createCompany: { resource: 'companies', operation: 'create' },
-  listDeals: { resource: 'deals', operation: 'list' },
-  getDeal: { resource: 'deals', operation: 'get' },
-  createDeal: { resource: 'deals', operation: 'create' },
-  listPipelines: { resource: 'pipelines', operation: 'list' },
-};
 
 const slugs = Object.keys(PROVIDERS);
 

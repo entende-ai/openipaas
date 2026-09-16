@@ -156,6 +156,29 @@ curl "https://app.openipaas.com/api/unified/v1/passthrough/contacts?page[size]=5
 
 The path after `/passthrough/` is appended to the provider's base URL and the raw provider response comes back untouched. That response is provider-shaped: it changes when you point the same code at a different provider. Use passthrough for the gaps, not as the default.
 
+## Using it from an AI agent
+
+The same deployment is an MCP server at `/api/mcp`, so a model can use a connected account directly instead of you writing a client for it.
+
+```bash
+claude mcp add --transport http openipaas https://app.openipaas.com/api/mcp \
+  --header "Authorization: Bearer oip_live_..." \
+  --header "X-Account-Token: 0f5a..."
+```
+
+Any MCP client that speaks Streamable HTTP and can send headers works the same way.
+
+The tools are built from the connected account's capability matrix, not written per provider. An RD Station account offers `list_contacts`, `get_contact`, `create_contact`, `list_companies`, `list_deals`, `create_deal`, `list_pipelines` and `passthrough`. A Conta Azul account offers customers, products and sales instead, through the same endpoint. Ask the client to list tools rather than assuming a name exists.
+
+Conventions worth knowing when you read a transcript:
+
+- **Lists are paged.** A tool returns `hasMore` and `nextCursor`; the model passes the cursor back as `cursor`.
+- **Writes take a `data` object** holding unified fields, the same ones the REST route accepts.
+- **A failed call comes back as a readable result**, not a transport error, so the model can correct itself and try again. Provider detail stays in the logs; the model sees the code, the safe message and a request id.
+- **Read and destructive tools are annotated**, so a client that asks for confirmation before acting knows which is which.
+
+One account token means one account. A model connected this way can reach exactly what that token can reach, and nothing else.
+
 ## Provider notes
 
 ### RD Station CRM
