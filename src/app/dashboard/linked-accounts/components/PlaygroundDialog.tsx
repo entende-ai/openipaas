@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { runPlaygroundRequest, type PlaygroundResult } from '@/app/actions/test-api'
-import type { PlaygroundOperation } from '@/lib/dashboard/playground'
+import { explainResult, type PlaygroundOperation } from '@/lib/dashboard/playground'
 
 /**
  * Runs a real request against a connected account.
@@ -24,16 +24,22 @@ export function PlaygroundDialog({
   operations,
   passthrough,
   baseUrl,
+  examples,
+  docsUrl,
 }: {
   linkedAccountId: string
   providerName: string
   operations: PlaygroundOperation[]
   passthrough: boolean
   baseUrl: string
+  /** Real paths for this provider, so nobody has to guess one. */
+  examples: readonly { path: string; label: string }[]
+  docsUrl?: string
 }) {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(operations[0]?.id ?? (passthrough ? 'passthrough' : ''))
-  const [path, setPath] = useState('/')
+  // Starting on a real path beats starting on a slash nobody knows how to fill.
+  const [path, setPath] = useState(examples[0]?.path ?? '/')
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<PlaygroundResult | null>(null)
 
@@ -73,7 +79,9 @@ export function PlaygroundDialog({
         <DialogHeader>
           <DialogTitle>Playground</DialogTitle>
           <DialogDescription>
-            Sends a real read request to {providerName} with this connection&apos;s credentials. Nothing is written.
+            Sends a real read request to {providerName}
+            {' '}
+            with this connection&apos;s credentials. Nothing is written.
           </DialogDescription>
         </DialogHeader>
 
@@ -118,8 +126,44 @@ export function PlaygroundDialog({
                   placeholder="/contacts?limit=5"
                   spellCheck={false}
                 />
+                {examples.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Try:</span>
+                    {examples.map((example) => (
+                      <button
+                        key={example.path}
+                        type="button"
+                        onClick={() => setPath(example.path)}
+                        className={`rounded-full border px-2.5 py-1 font-mono text-xs transition-colors ${
+                          path === example.path
+                            ? 'border-foreground/25 bg-muted text-foreground'
+                            : 'border-transparent bg-muted/40 text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {example.path}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground">
-                  Relative to {baseUrl || 'the provider'}. Check their API reference for the exact path.
+                  Relative to {baseUrl || 'the provider'}.
+                  {docsUrl ? (
+                    <>
+                      {' '}
+                      <a
+                        href={docsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-4 hover:text-foreground"
+                      >
+                        {providerName} API reference
+                      </a>{' '}
+                      lists every path.
+                    </>
+                  ) : (
+                    ' Check their API reference for the exact path.'
+                  )}
                 </p>
               </div>
             )}
@@ -140,9 +184,19 @@ export function PlaygroundDialog({
                   {'latencyMs' in result && <span className="text-muted-foreground">{result.latencyMs}ms</span>}
                 </div>
 
+                <p className="text-xs text-muted-foreground">
+                  {explainResult({
+                    status: result.status,
+                    providerName,
+                    data: result.data,
+                    error: result.error,
+                    path: selected === 'passthrough' ? path : undefined,
+                  })}
+                </p>
+
                 <div className="min-h-0 flex-1 overflow-auto rounded-md border">
                   <pre className="whitespace-pre-wrap break-words bg-muted p-4 font-mono text-xs">
-                    {JSON.stringify('data' in result ? result.data : result.error, null, 2)}
+                    {JSON.stringify(result.error ?? result.data, null, 2)}
                   </pre>
                 </div>
               </div>

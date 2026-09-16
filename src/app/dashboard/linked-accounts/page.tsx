@@ -138,6 +138,8 @@ export default async function LinkedAccountsPage() {
                     operations={operations}
                     passthrough={abilities.passthrough}
                     baseUrl={manifest?.baseUrl ?? ''}
+                    examples={manifest?.passthroughExamples ?? []}
+                    docsUrl={manifest?.docsUrl}
                   />
                   <DisconnectButton
                     linkedAccountId={account.id}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { connectionHealth, maskToken, formatDuration, connectionAbilities } from '@/lib/dashboard/connections';
-import { playgroundOperations, normalizePassthroughPath } from '@/lib/dashboard/playground';
+import { playgroundOperations, normalizePassthroughPath, explainResult, isEmptyResult } from '@/lib/dashboard/playground';
 import { onboardingSteps, onboardingComplete } from '@/lib/dashboard/onboarding';
 import { rdStationCrmManifest } from '@/lib/providers/implementations/rdstationcrm/manifest';
 import { contaAzulManifest } from '@/lib/providers/implementations/contaazul/manifest';
@@ -116,6 +116,38 @@ describe('passthrough paths', () => {
   it('refuses traversal and emptiness', () => {
     expect(normalizePassthroughPath('/contacts/../../admin')).toHaveProperty('error');
     expect(normalizePassthroughPath('   ')).toHaveProperty('error');
+  });
+});
+
+describe('explaining a result', () => {
+  // The first real call against RD Station returned {"data": []} with a 200,
+  // which reads like a failure to anyone who has not seen the API before.
+  it('says an empty list is a success, not a problem', () => {
+    const message = explainResult({ status: 200, providerName: 'RD Station CRM', data: { data: [] }, path: '/contacts' });
+
+    expect(message).toContain('It worked');
+    expect(message).toContain('no records');
+    expect(message).toContain('/contacts');
+  });
+
+  it('recognises emptiness in the shapes providers actually return', () => {
+    expect(isEmptyResult([])).toBe(true);
+    expect(isEmptyResult({ data: [] })).toBe(true);
+    expect(isEmptyResult({ items: [] })).toBe(true);
+    expect(isEmptyResult({ sample: [] })).toBe(true);
+    expect(isEmptyResult({ data: [{ id: '1' }] })).toBe(false);
+    expect(isEmptyResult({ id: '1' })).toBe(false);
+    expect(isEmptyResult(null)).toBe(false);
+  });
+
+  it('turns each failure into the next thing to do', () => {
+    const provider = 'RD Station CRM';
+
+    expect(explainResult({ status: 404, providerName: provider, path: '/contatos' })).toContain('no such path');
+    expect(explainResult({ status: 401, providerName: provider })).toContain('connect the account again');
+    expect(explainResult({ status: 429, providerName: provider })).toContain('rate limiting');
+    expect(explainResult({ status: 503, providerName: provider })).toContain('their side');
+    expect(explainResult({ status: 501, providerName: provider })).toContain('not implemented');
   });
 });
 

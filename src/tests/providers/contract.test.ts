@@ -114,6 +114,17 @@ describe.each(slugs)('provider contract: %s', (slug) => {
     expect(existsSync(path.join('public', manifest.logo)), `${manifest.logo} is not in public/`).toBe(true);
   });
 
+  it('offers example paths only where they can be called', () => {
+    for (const example of manifest.passthroughExamples ?? []) {
+      // The playground puts these straight into a request, so a path that is
+      // not relative would send the account's token to another host.
+      expect(example.path.startsWith('/'), `${example.path} must start with /`).toBe(true);
+      expect(example.path.startsWith('//')).toBe(false);
+      expect(example.label.trim().length).toBeGreaterThan(0);
+      expect(manifest.passthrough, `${slug} offers example paths but no passthrough`).toBe(true);
+    }
+  });
+
   it('exposes the provider instance through the registry', () => {
     expect(provider.manifest.slug).toBe(slug);
   });
