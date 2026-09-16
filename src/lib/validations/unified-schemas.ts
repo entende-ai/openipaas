@@ -89,3 +89,69 @@ export const UnifiedSellerSchema = UnifiedBaseRecordSchema.extend({
   name: z.string(),
   externalId: z.string().optional(),
 });
+
+/* ------------------------------------------------------------------ *
+ * CRM
+ * ------------------------------------------------------------------ */
+
+export const UnifiedOwnerSchema = z.object({
+  id: z.string().nullable(),
+  name: z.string().nullable(),
+  email: z.string().nullable(),
+});
+
+export const UnifiedContactSchema = UnifiedBaseRecordSchema.extend({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().nullable(),
+  emails: z.array(z.string()),
+  phones: z.array(z.string()),
+  title: z.string().nullable(),
+  companyId: z.string().nullable(),
+  companyName: z.string().nullable(),
+  owner: UnifiedOwnerSchema.nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
+});
+
+export const UnifiedCompanySchema = UnifiedBaseRecordSchema.extend({
+  id: z.string(),
+  name: z.string(),
+  document: z.string().nullable(),
+  website: z.string().nullable(),
+  phones: z.array(z.string()),
+  owner: UnifiedOwnerSchema.nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
+});
+
+export const UnifiedDealSchema = UnifiedBaseRecordSchema.extend({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum(['OPEN', 'WON', 'LOST', 'UNKNOWN']),
+  amount: z.number().nullable(),
+  currency: z.string().nullable(),
+  pipelineId: z.string().nullable(),
+  pipelineName: z.string().nullable(),
+  stageId: z.string().nullable(),
+  stageName: z.string().nullable(),
+  companyId: z.string().nullable(),
+  companyName: z.string().nullable(),
+  contactIds: z.array(z.string()),
+  owner: UnifiedOwnerSchema.nullable(),
+  closedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
+});
+
+export const UnifiedPipelineStageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  order: z.number(),
+});
+
+export const UnifiedPipelineSchema = UnifiedBaseRecordSchema.extend({
+  id: z.string(),
+  name: z.string(),
+  stages: z.array(UnifiedPipelineStageSchema),
+});

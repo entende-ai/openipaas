@@ -1,5 +1,9 @@
 import type {
+  UnifiedCompany,
+  UnifiedContact,
   UnifiedCustomer,
+  UnifiedDeal,
+  UnifiedPipeline,
   UnifiedProduct,
   UnifiedSale,
   UnifiedSeller,
@@ -25,7 +29,13 @@ export type ResourceName =
   | 'brands'
   | 'units'
   | 'sales'
-  | 'sellers';
+  | 'sellers'
+  // CRM. A contact is a person, a company is who they work for, and a deal is
+  // the opportunity between them, which is not a sale until it is won.
+  | 'contacts'
+  | 'companies'
+  | 'deals'
+  | 'pipelines';
 
 export type Operation =
   | 'list'
@@ -205,6 +215,27 @@ export interface SalesModule {
   listSellers?(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedSeller>>;
 }
 
+/**
+ * CRM side of the catalog.
+ *
+ * Split from the ERP modules because the two have little in common: a CRM has
+ * no products and an ERP has no pipeline. A provider implements whichever of
+ * these its API actually has.
+ */
+export interface CrmModule {
+  listContacts(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedContact>>;
+  getContact?(ctx: ProviderContext, id: string): Promise<UnifiedContact>;
+  createContact?(ctx: ProviderContext, data: Partial<UnifiedContact>): Promise<UnifiedContact>;
+  listCompanies?(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedCompany>>;
+  getCompany?(ctx: ProviderContext, id: string): Promise<UnifiedCompany>;
+  createCompany?(ctx: ProviderContext, data: Partial<UnifiedCompany>): Promise<UnifiedCompany>;
+  listDeals?(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedDeal>>;
+  getDeal?(ctx: ProviderContext, id: string): Promise<UnifiedDeal>;
+  createDeal?(ctx: ProviderContext, data: Partial<UnifiedDeal>): Promise<UnifiedDeal>;
+  /** Stages arrive inside each pipeline, so there is no separate stage call. */
+  listPipelines?(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedPipeline>>;
+}
+
 export interface BulkResult {
   processedCount: number;
   ignoredCount: number;
@@ -222,6 +253,7 @@ export interface UnifiedProvider
   extends Partial<CustomerModule>,
     Partial<ProductModule>,
     Partial<SalesModule>,
+    Partial<CrmModule>,
     Partial<PassthroughModule> {
   readonly manifest: ProviderManifest;
 }

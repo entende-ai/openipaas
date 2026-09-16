@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { connectionHealth, maskToken, formatDuration, connectionAbilities } from '@/lib/dashboard/connections';
 import { playgroundOperations, normalizePassthroughPath, explainResult, isEmptyResult } from '@/lib/dashboard/playground';
 import { onboardingSteps, onboardingComplete } from '@/lib/dashboard/onboarding';
-import { rdStationCrmManifest } from '@/lib/providers/implementations/rdstationcrm/manifest';
+import { tinyManifest } from '@/lib/providers/implementations/tiny/manifest';
 import { contaAzulManifest } from '@/lib/providers/implementations/contaazul/manifest';
 
 const now = new Date('2026-09-16T12:00:00Z');
@@ -82,10 +82,11 @@ describe('token masking', () => {
 });
 
 describe('playground operations', () => {
-  // The whole reason the old playground was useless for RD Station.
+  // The whole reason the old playground was useless for a provider that has
+  // only passthrough, as RD Station had before the CRM mappers landed.
   it('offers nothing unified for a passthrough-only provider', () => {
-    expect(playgroundOperations(rdStationCrmManifest)).toEqual([]);
-    expect(connectionAbilities(rdStationCrmManifest)).toEqual({ unified: [], passthrough: true });
+    expect(playgroundOperations(tinyManifest)).toEqual([]);
+    expect(connectionAbilities(tinyManifest)).toEqual({ unified: [], passthrough: true });
   });
 
   it('offers exactly what a provider declares', () => {
