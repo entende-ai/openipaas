@@ -41,6 +41,15 @@ export const rdStationCrmManifest: ProviderManifest = {
 
   passthrough: true,
 
+  // Straight from the CRM v2 reference. Listing endpoints are paginated, so
+  // these are safe to call on any account and return quickly.
+  passthroughExamples: [
+    { path: '/contacts', label: 'Contacts' },
+    { path: '/deals', label: 'Deals' },
+    { path: '/organizations', label: 'Companies' },
+    { path: '/users', label: 'Users' },
+  ],
+
   // On so the first connection against a real RD app can run from the
   // dashboard. The docs do not mention the `state` parameter; if RD drops it,
   // the callback refuses the connection (it cannot tell which client the

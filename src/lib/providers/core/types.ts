@@ -98,6 +98,12 @@ export interface ProviderManifest {
   /** Whether the raw upstream API is exposed through /passthrough. */
   passthrough: boolean;
   /**
+   * A few real GET paths for this provider, offered in the playground so
+   * nobody has to guess one from the provider's documentation. Only meaningful
+   * alongside `passthrough`.
+   */
+  passthroughExamples?: readonly { path: string; label: string }[];
+  /**
    * Offered for connection in the dashboard and listed by /providers?enabled=true.
    * Turn it on once connecting an account has worked end to end against the
    * real upstream. Unified resources are not required: passthrough alone makes a

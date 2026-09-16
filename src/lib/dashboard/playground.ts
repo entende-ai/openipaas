@@ -66,3 +66,58 @@ export function normalizePassthroughPath(raw: string): { path: string } | { erro
  * idempotency key and a developer who meant it.
  */
 export const PLAYGROUND_METHOD = 'GET' as const;
+
+/** True when the provider answered fine but there is nothing in there. */
+export function isEmptyResult(data: unknown): boolean {
+  if (Array.isArray(data)) return data.length === 0;
+  if (!data || typeof data !== 'object') return false;
+
+  const record = data as Record<string, unknown>;
+
+  // Unified pages and the shapes providers use for a list of nothing.
+  if (Array.isArray(record.items)) return record.items.length === 0;
+  if (Array.isArray(record.data)) return record.data.length === 0;
+  if (Array.isArray(record.sample)) return record.sample.length === 0;
+
+  return false;
+}
+
+/**
+ * One sentence about what just happened.
+ *
+ * A raw 404 or an empty array means nothing to someone who has not read the
+ * provider's API reference, and this screen is where they find out.
+ */
+export function explainResult(input: {
+  status: number;
+  providerName: string;
+  data?: unknown;
+  error?: string;
+  path?: string;
+}): string {
+  const where = input.path ? ` at ${input.path}` : '';
+
+  if (input.status >= 200 && input.status < 300) {
+    return isEmptyResult(input.data)
+      ? `It worked. ${input.providerName} has no records${where} on this account yet.`
+      : 'It worked, and the response is below.';
+  }
+
+  switch (input.status) {
+    case 400:
+      return `${input.providerName} rejected the request${where}. Check the path and its parameters.`;
+    case 401:
+    case 403:
+      return `${input.providerName} refused the stored credentials. Disconnect and connect the account again.`;
+    case 404:
+      return `${input.providerName} has no such path${where}. Check their API reference for the exact one.`;
+    case 429:
+      return `${input.providerName} is rate limiting us. Wait a moment and try again.`;
+    case 501:
+      return 'This operation is not implemented for this provider yet.';
+    default:
+      return input.status >= 500
+        ? `${input.providerName} failed to answer. That is on their side, so try again in a moment.`
+        : 'The request did not go through.';
+  }
+}
