@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { signPayload, verifySignature, nextAttemptDelayMs } from '@/lib/webhooks';
 import {
-  checkPassword,
+  checkOperatorPassword,
   isDashboardAuthConfigured,
   issueSessionToken,
+  sessionSubject,
   verifySessionToken,
 } from '@/lib/auth-session';
 import { redirectUriFor, slugFromCallbackSegment } from '@/lib/oauth';
@@ -68,7 +69,7 @@ describe('dashboard session', () => {
   });
 
   it('round-trips a token it issued', async () => {
-    expect(await verifySessionToken(await issueSessionToken())).toBe(true);
+    expect(await verifySessionToken(await issueSessionToken('user-1'))).toBe(true);
   });
 
   it('rejects junk, empty and missing tokens', async () => {
@@ -78,14 +79,14 @@ describe('dashboard session', () => {
   });
 
   it('rejects a token signed with a different secret', async () => {
-    const token = await issueSessionToken();
+    const token = await issueSessionToken('user-1');
     process.env.DASHBOARD_SESSION_SECRET = 'a-different-secret';
 
     expect(await verifySessionToken(token)).toBe(false);
   });
 
   it('rejects a forged payload with a stale signature', async () => {
-    const [, signature] = (await issueSessionToken()).split('.');
+    const [, signature] = (await issueSessionToken('user-1')).split('.');
     const forged = Buffer.from(JSON.stringify({ sub: 'admin', exp: Date.now() + 999999 }), 'utf8').toString('base64url');
 
     expect(await verifySessionToken(`${forged}.${signature}`)).toBe(false);
@@ -100,10 +101,18 @@ describe('dashboard session', () => {
     expect(await verifySessionToken(`${encoded}.${signature}`)).toBe(false);
   });
 
-  it('checks the password without throwing on a length mismatch', () => {
-    expect(checkPassword('correct-horse')).toBe(true);
-    expect(checkPassword('wrong')).toBe(false);
-    expect(checkPassword('')).toBe(false);
+  it('checks the operator password without throwing on a length mismatch', () => {
+    expect(checkOperatorPassword('correct-horse')).toBe(true);
+    expect(checkOperatorPassword('wrong')).toBe(false);
+    expect(checkOperatorPassword('')).toBe(false);
+  });
+
+  it('carries the account id, so the console knows who is signed in', async () => {
+    expect(await sessionSubject(await issueSessionToken('user-1'))).toBe('user-1');
+  });
+
+  it('refuses to issue a token with no subject', async () => {
+    await expect(issueSessionToken('')).rejects.toThrow(/subject/);
   });
 });
 
