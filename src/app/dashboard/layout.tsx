@@ -1,5 +1,7 @@
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
+import { MobileNav } from '@/components/MobileNav'
 import { currentUser } from '@/lib/auth-session'
 import { SignOutButton } from './components/SignOutButton'
 
@@ -21,21 +23,26 @@ export default async function DashboardLayout({
   if (!user) redirect('/login')
 
   return (
-    <div className="flex min-h-screen w-full bg-background dark">
+    <div className="dark flex min-h-screen w-full bg-background">
       <Sidebar />
-      <div className="flex flex-col w-full">
-        <header className="h-14 lg:h-[60px] border-b flex items-center gap-4 px-6 bg-muted/10">
-          <div className="flex-1">
-            <h1 className="font-semibold text-sm">Dashboard</h1>
+
+      <div className="flex w-full flex-col">
+        <header className="flex h-14 items-center gap-4 border-b bg-muted/10 px-4 md:px-6 lg:h-[60px]">
+          {/* The sidebar carries the brand on wide screens; here it does on narrow ones. */}
+          <div className="flex flex-1 items-center gap-2 md:hidden">
+            <Image src="/logo.png" alt="" width={24} height={24} className="rounded-md" />
+            <span className="text-sm font-semibold tracking-tight">Open IpaaS</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">{user.name || user.email}</span>
+
+          <div className="ml-auto flex items-center gap-3">
+            <span className="hidden text-xs text-muted-foreground sm:inline">{user.name || user.email}</span>
             <SignOutButton />
           </div>
         </header>
-        <main className="flex-1 flex flex-col gap-4 p-4 md:gap-8 md:p-8">
-          {children}
-        </main>
+
+        <MobileNav />
+
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">{children}</main>
       </div>
     </div>
   )
