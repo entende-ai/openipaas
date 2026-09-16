@@ -1,0 +1,185 @@
+# Integration guide
+
+From zero to a working call. Read this once, then use the API reference at `/docs` for the field by field detail.
+
+- [What the pieces are](#what-the-pieces-are)
+- [1. Create a client](#1-create-a-client)
+- [2. Issue an API key](#2-issue-an-api-key)
+- [3. Connect an account](#3-connect-an-account)
+- [4. Make the first call](#4-make-the-first-call)
+- [Paging through a list](#paging-through-a-list)
+- [Writing](#writing)
+- [Knowing what a provider can do](#knowing-what-a-provider-can-do)
+- [Errors](#errors)
+- [Passthrough](#passthrough)
+- [Provider notes](#provider-notes)
+- [Nothing to read yet](#nothing-to-read-yet)
+
+## What the pieces are
+
+Four nouns, and they only make sense together:
+
+| | What it is | Where it lives |
+|---|---|---|
+| **Client** | Whoever consumes your unified API: a customer, an internal app, a partner. | Dashboard, Clients |
+| **API key** | Identifies the client. Sent as `Authorization: Bearer ...`. | Issued per client, shown once |
+| **Linked account** | One provider account (an RD Station CRM account, a Conta Azul account) that a client is allowed to reach. | Dashboard, Linked accounts |
+| **Account token** | Selects which linked account a call acts on. Sent as `X-Account-Token: ...`. | Shown on the linked account |
+
+The key says who is calling. The account token says whose data. Both are required on every call, which is what lets one integration serve many end customers without changing a line of code.
+
+## 1. Create a client
+
+Dashboard, **Clients**, **New client**. A name is all it takes.
+
+If you are integrating your own product, one client is enough. If you are reselling the integration, one client per customer keeps keys revocable independently.
+
+## 2. Issue an API key
+
+On the client, **Issue key**.
+
+The plaintext is shown once and never again: only a SHA-256 digest and a short display prefix are stored, so a database dump yields nothing usable. Copy it into your secret store at that moment. If you lose it, revoke it and issue another; there is no recovery path by design.
+
+Keys look like `oip_live_...`.
+
+## 3. Connect an account
+
+Dashboard, **Linked accounts**, **Connect**. Pick the provider and the client, then finish the provider's own login.
+
+For OAuth providers such as RD Station CRM, the browser goes to the provider, you approve, and the callback returns with the connection stored. Access and refresh tokens are encrypted at rest; refreshes happen automatically and, for providers that rotate refresh tokens on use, are serialized per credential so two concurrent calls cannot invalidate each other.
+
+The linked account shows an **account token**. That is the `X-Account-Token` value for this account.
+
+## 4. Make the first call
+
+```bash
+curl https://app.openipaas.com/api/unified/v1/contacts \
+  -H "Authorization: Bearer oip_live_..." \
+  -H "X-Account-Token: 0f5a..."
+```
+
+```json
+{
+  "items": [
+    {
+      "id": "65f1c0...",
+      "name": "Ana Ribeiro",
+      "email": "ana.ribeiro@exemplo.com.br",
+      "emails": ["ana.ribeiro@exemplo.com.br"],
+      "phones": ["+5511980000000"],
+      "title": "Diretora Comercial",
+      "companyId": "65f1bf...",
+      "companyName": "Padaria Sao Jorge",
+      "owner": { "id": "5f2...", "name": "Felipe", "email": "felipe@exemplo.com.br" },
+      "createdAt": "2026-09-16T03:11:02.000Z",
+      "updatedAt": null
+    }
+  ],
+  "hasMore": true,
+  "nextCursor": "eyJwYWdlIjoyfQ"
+}
+```
+
+The same shape comes back whichever provider is behind the account. Swapping the account token for a different provider's account does not change your code.
+
+There is a playground in the dashboard on each linked account, which sends exactly this request with the account's own credentials. Use it to confirm a connection before writing any code.
+
+## Paging through a list
+
+Cursor based, because most upstream APIs are:
+
+```bash
+curl "https://app.openipaas.com/api/unified/v1/deals?limit=50" -H ... 
+curl "https://app.openipaas.com/api/unified/v1/deals?limit=50&cursor=eyJwYWdlIjoyfQ" -H ...
+```
+
+Loop while `hasMore` is true, passing `nextCursor` back as `cursor`. Never build the cursor yourself: it is opaque and its contents differ per provider.
+
+`totalItems` is best effort and is **absent from the response** for providers whose API cannot report a total, which is the case for RD Station CRM. Do not drive a progress bar off it without a fallback.
+
+`search` is accepted where the provider supports free-text search, and ignored where it does not.
+
+## Writing
+
+```bash
+curl -X POST https://app.openipaas.com/api/unified/v1/companies \
+  -H "Authorization: Bearer oip_live_..." \
+  -H "X-Account-Token: 0f5a..." \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 4f0c1d2e-order-8821" \
+  -d '{"name": "Padaria Sao Jorge", "website": "https://padariasaojorge.com.br"}'
+```
+
+Send an `Idempotency-Key` on every write. Retrying with the same key replays the original response instead of creating a second record, which is what makes a network timeout safe to retry. Reusing the same key with a different body returns `422`, because that is a bug in the caller rather than a retry.
+
+The response is the created record in unified shape, with the provider's id in `id`.
+
+## Knowing what a provider can do
+
+Not every provider does everything, and the API tells you rather than failing late:
+
+```bash
+curl https://app.openipaas.com/api/unified/v1/providers \
+  -H "Authorization: Bearer oip_live_..."
+```
+
+Each entry carries a capability matrix: which resources exist and which operations are supported on them. A call to an operation a provider lacks returns `501 NOT_SUPPORTED` before any upstream request is made, so it costs nothing and never half-completes.
+
+The same matrix is rendered in the API reference at `/docs`.
+
+## Errors
+
+Every error carries a stable `code` and a `requestId`, also returned in the `X-Request-Id` header. Quote the `requestId` when reporting a problem: it is how a specific call is found in the logs. Upstream payloads are logged, never returned, so provider error text cannot leak customer data into your application.
+
+| Code | Meaning | What to do |
+|---|---|---|
+| `UNAUTHORIZED` | Bad or revoked key, or an account token that does not belong to the client | Check both headers |
+| `INVALID_REQUEST` | The body or parameters did not validate | Read `error`, fix the call |
+| `NOT_FOUND` | No such record on the provider | |
+| `NOT_SUPPORTED` | The provider lacks this operation | Check the capability matrix, branch in your code |
+| `RATE_LIMITED` | Too many requests, ours or the provider's | Back off and retry; we already throttle to the provider's documented limit |
+| `TOKEN_EXPIRED` | The connection needs reauthorizing | Reconnect the account in the dashboard |
+| `UPSTREAM_ERROR` / `UPSTREAM_TIMEOUT` | The provider failed or did not answer | Retry with the same `Idempotency-Key` |
+| `CONFIG_ERROR` | The deployment is missing a credential or setting | For the operator, not the caller |
+
+Retries are worth it for `RATE_LIMITED`, `UPSTREAM_ERROR` and `UPSTREAM_TIMEOUT`. The other codes will fail again the same way.
+
+## Passthrough
+
+The unified model will never cover every field of every provider. Anything it misses is still reachable, with the account's credentials, authentication and throttling handled for you:
+
+```bash
+curl "https://app.openipaas.com/api/unified/v1/passthrough/contacts?page[size]=5" \
+  -H "Authorization: Bearer oip_live_..." \
+  -H "X-Account-Token: 0f5a..."
+```
+
+The path after `/passthrough/` is appended to the provider's base URL and the raw provider response comes back untouched. That response is provider-shaped: it changes when you point the same code at a different provider. Use passthrough for the gaps, not as the default.
+
+## Provider notes
+
+### RD Station CRM
+
+Base URL `https://api.rd.services/crm/v2`. Unified resources: contacts, companies, deals, pipelines.
+
+- **Companies are `organizations` upstream.** The unified `companyId` on a contact or a deal is an organization id.
+- **`document` (CNPJ) is read only.** It lives in a custom field whose slug differs per account, so it is read where present and never written.
+- **Deals join a funnel through their stage.** `pipelineId` is read only; send `stageId` on create. `GET /pipelines` returns each pipeline with its stages in order, which is where a stage id comes from.
+- **A deal's `amount`** is the total where RD reports one, otherwise the sum of its recurring and one-off prices. A deal with no value has `amount: null`, which is not zero.
+- **Status vocabulary**: RD's `won` and `lost` map to `WON` and `LOST`; `ongoing` and `paused` are both `OPEN`. Anything unrecognized is `UNKNOWN` rather than a guess.
+- **Owner and stage names** come from the account's users and pipelines, fetched once per request batch and cached. If the connected user cannot read them, ids still come back and only the names are null.
+- **Rate limit**: 120 requests per minute per account, which the platform throttles to on your behalf.
+
+### Conta Azul, Omie, Tiny
+
+Accounting and ERP providers, covering customers, products and sales to varying degrees. Check `/providers` for the exact matrix rather than assuming: it is generated from the code and cannot drift.
+
+## Nothing to read yet
+
+A brand new trial account is empty, and an empty list looks identical to a broken integration. Fill it with obviously fake data first:
+
+```bash
+npm run seed:crm -- --api-key oip_live_... --account-token 0f5a...
+```
+
+That prints the plan and writes nothing. Add `--confirm` to write. Every record it creates is named with a `[sandbox]` marker so you can find and delete it later. Point it at a trial account, never at one with real customers in it.
