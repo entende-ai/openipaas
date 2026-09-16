@@ -59,8 +59,8 @@ describe('RdStationCrmProvider manifest', () => {
     expect(rdStationCrmManifest.auth).toMatchObject({ type: 'OAUTH2', tokenEndpointAuth: 'body' });
   });
 
-  it('is offered in the connect dialog as passthrough only', () => {
-    // No unified CRM resources yet, so passthrough is all a connection gives.
-    expect(connectionOffer(rdStationCrmManifest)).toEqual({ connectable: true, note: 'passthrough only' });
+  it('is offered in the connect dialog with no caveat', () => {
+    // It has unified CRM resources now, so a connection is useful on its own.
+    expect(connectionOffer(rdStationCrmManifest)).toEqual({ connectable: true, note: null });
   });
 });

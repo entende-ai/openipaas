@@ -34,6 +34,16 @@ const RESOURCE_METHODS: Record<string, { resource: ResourceName; operation: Oper
   getSalePdf: { resource: 'sales', operation: 'pdf' },
   bulkDeleteSales: { resource: 'sales', operation: 'bulkDelete' },
   listSellers: { resource: 'sellers', operation: 'list' },
+  listContacts: { resource: 'contacts', operation: 'list' },
+  getContact: { resource: 'contacts', operation: 'get' },
+  createContact: { resource: 'contacts', operation: 'create' },
+  listCompanies: { resource: 'companies', operation: 'list' },
+  getCompany: { resource: 'companies', operation: 'get' },
+  createCompany: { resource: 'companies', operation: 'create' },
+  listDeals: { resource: 'deals', operation: 'list' },
+  getDeal: { resource: 'deals', operation: 'get' },
+  createDeal: { resource: 'deals', operation: 'create' },
+  listPipelines: { resource: 'pipelines', operation: 'list' },
 };
 
 const slugs = Object.keys(PROVIDERS);

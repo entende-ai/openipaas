@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import {
   UnifiedBrandSchema,
+  UnifiedCompanySchema,
+  UnifiedContactSchema,
+  UnifiedDealSchema,
+  UnifiedPipelineSchema,
   UnifiedCategorySchema,
   UnifiedCustomerSchema,
   UnifiedProductSchema,
@@ -134,7 +138,19 @@ function bulkOp(tag: string, summary: string) {
 
 /** Renders the manifest capability matrix into the API description. */
 function capabilityTable(): string {
-  const resources: ResourceName[] = ['customers', 'products', 'categories', 'brands', 'units', 'sales', 'sellers'];
+  const resources: ResourceName[] = [
+    'customers',
+    'products',
+    'categories',
+    'brands',
+    'units',
+    'sales',
+    'sellers',
+    'contacts',
+    'companies',
+    'deals',
+    'pipelines',
+  ];
   const manifests = listManifests();
 
   const header = `| Resource | ${manifests.map((m) => m.name).join(' | ')} |`;
@@ -190,6 +206,7 @@ export const openApiSpec = {
     { name: 'Customers', description: 'People, customers and suppliers.' },
     { name: 'Products', description: 'Catalog and inventory.' },
     { name: 'Sales', description: 'Sales, orders and sellers.' },
+    { name: 'CRM', description: 'Contacts, companies, deals and the funnel they move through.' },
     { name: 'Platform', description: 'Catalog and raw provider access.' },
   ],
   security: [{ ApiKeyAuth: [], AccountToken: [] }],
@@ -206,10 +223,63 @@ export const openApiSpec = {
       Unit: schemaOf(UnifiedUnitSchema),
       Sale: schemaOf(UnifiedSaleSchema),
       Seller: schemaOf(UnifiedSellerSchema),
+      Contact: schemaOf(UnifiedContactSchema),
+      Company: schemaOf(UnifiedCompanySchema),
+      Deal: schemaOf(UnifiedDealSchema),
+      Pipeline: schemaOf(UnifiedPipelineSchema),
       Error: ERROR_SCHEMA,
     },
   },
   paths: {
+    '/contacts': {
+      get: listOp('CRM', 'List contacts', 'Contact'),
+      post: {
+        tags: ['CRM'],
+        summary: 'Create a contact',
+        requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Contact' } } } },
+        responses: { '201': { description: 'Created' }, ...COMMON_ERRORS },
+      },
+    },
+    '/contacts/{id}': {
+      get: getOp('CRM', 'Fetch a contact', 'Contact'),
+    },
+    '/companies': {
+      get: listOp('CRM', 'List companies', 'Company'),
+      post: {
+        tags: ['CRM'],
+        summary: 'Create a company',
+        requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Company' } } } },
+        responses: { '201': { description: 'Created' }, ...COMMON_ERRORS },
+      },
+    },
+    '/companies/{id}': {
+      get: getOp('CRM', 'Fetch a company', 'Company'),
+    },
+    '/deals': {
+      get: listOp('CRM', 'List deals', 'Deal'),
+      post: {
+        tags: ['CRM'],
+        summary: 'Create a deal',
+        description: 'A deal joins a funnel through `stageId`. Providers derive the pipeline from the stage.',
+        requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Deal' } } } },
+        responses: { '201': { description: 'Created' }, ...COMMON_ERRORS },
+      },
+    },
+    '/deals/{id}': {
+      get: getOp('CRM', 'Fetch a deal', 'Deal'),
+    },
+    '/pipelines': {
+      get: {
+        tags: ['CRM'],
+        summary: 'List pipelines with their stages',
+        description: 'Stages arrive inside their pipeline: a stage id only means something against the funnel it belongs to.',
+        parameters: LIST_PARAMS,
+        responses: {
+          '200': { description: 'A page of pipelines', content: { 'application/json': { schema: pageOf('Pipeline') } } },
+          ...COMMON_ERRORS,
+        },
+      },
+    },
     '/providers': {
       get: {
         tags: ['Platform'],

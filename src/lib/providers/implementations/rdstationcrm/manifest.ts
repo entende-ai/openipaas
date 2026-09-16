@@ -35,9 +35,16 @@ export const rdStationCrmManifest: ProviderManifest = {
   // 120 requests per minute per account on every plan; a 429 carries Retry-After.
   rateLimit: { requestsPerSecond: 2, burst: 2 },
 
-  // Unified CRM resources arrive with the CRM domain; passthrough makes a
-  // connected account useful until then.
-  capabilities: {},
+  // Reads and creates for the three resources a CRM is about, plus the funnel
+  // itself so a stage id means something. Updates and deletes come later: they
+  // need a decision about partial updates that the unified contract has not
+  // taken yet.
+  capabilities: {
+    contacts: ['list', 'get', 'create'],
+    companies: ['list', 'get', 'create'],
+    deals: ['list', 'get', 'create'],
+    pipelines: ['list'],
+  },
 
   passthrough: true,
 
