@@ -59,6 +59,42 @@ export function normalizePassthroughPath(raw: string): { path: string } | { erro
 }
 
 /**
+ * The paths offered for a passthrough call.
+ *
+ * A free-text box asks somebody who has never read the provider's API reference
+ * to invent a path, and an invented path is a 404 that looks like a broken
+ * integration. The known ones come from the manifest; typing stays available
+ * for everything a manifest cannot list.
+ */
+export const CUSTOM_PATH = 'other';
+
+export interface PathOption {
+  /** The select value: a real path, or CUSTOM_PATH. */
+  value: string;
+  label: string;
+}
+
+export function pathOptions(examples: readonly { path: string; label: string }[]): PathOption[] {
+  const known = examples.map((example) => ({ value: example.path, label: example.label }));
+  return [...known, { value: CUSTOM_PATH, label: 'Other, type a path' }];
+}
+
+/** What the dropdown and the text box add up to. */
+export function chosenPath(choice: string, typed: string): string {
+  return choice === CUSTOM_PATH ? typed : choice;
+}
+
+/**
+ * Where the dropdown should start for a given set of examples.
+ *
+ * A provider with nothing to suggest opens on the text box: there is no point
+ * showing a dropdown whose only entry is "Other".
+ */
+export function initialPathChoice(examples: readonly { path: string; label: string }[]): string {
+  return examples[0]?.path ?? CUSTOM_PATH;
+}
+
+/**
  * The playground reads and never writes.
  *
  * A stray POST from a test console lands in a real customer's CRM, so the

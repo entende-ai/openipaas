@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, ExternalLink } from 'lucide-react'
 import { NAV, isActive } from './nav-items'
 
 /**
@@ -46,12 +46,17 @@ export function Sidebar() {
         })}
       </nav>
 
+      {/* New tab: the reference is something you read while working in the
+          console, not somewhere you navigate away to. */}
       <a
         href="/docs"
+        target="_blank"
+        rel="noreferrer"
         className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
       >
         <BookOpen className="h-4 w-4" />
         API reference
+        <ExternalLink className="ml-auto h-3 w-3 opacity-60" />
       </a>
     </aside>
   )

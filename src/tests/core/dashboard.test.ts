@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { connectionHealth, maskToken, formatDuration, connectionAbilities } from '@/lib/dashboard/connections';
-import { playgroundOperations, normalizePassthroughPath, explainResult, isEmptyResult } from '@/lib/dashboard/playground';
+import {
+  playgroundOperations,
+  normalizePassthroughPath,
+  explainResult,
+  isEmptyResult,
+  pathOptions,
+  initialPathChoice,
+  chosenPath,
+  CUSTOM_PATH,
+} from '@/lib/dashboard/playground';
 import { onboardingSteps, onboardingComplete } from '@/lib/dashboard/onboarding';
 import { tinyManifest } from '@/lib/providers/implementations/tiny/manifest';
 import { contaAzulManifest } from '@/lib/providers/implementations/contaazul/manifest';
@@ -117,6 +126,36 @@ describe('passthrough paths', () => {
   it('refuses traversal and emptiness', () => {
     expect(normalizePassthroughPath('/contacts/../../admin')).toHaveProperty('error');
     expect(normalizePassthroughPath('   ')).toHaveProperty('error');
+  });
+});
+
+describe('choosing a path', () => {
+  const EXAMPLES = [
+    { path: '/contacts', label: 'Contacts' },
+    { path: '/deals', label: 'Deals' },
+  ];
+
+  it('offers the provider\'s own paths, and typing as the last resort', () => {
+    const options = pathOptions(EXAMPLES);
+
+    expect(options.map((option) => option.value)).toEqual(['/contacts', '/deals', CUSTOM_PATH]);
+    expect(options[0].label).toBe('Contacts');
+    // Typing must stay reachable: a manifest lists four paths out of dozens.
+    expect(options.at(-1)?.value).toBe(CUSTOM_PATH);
+  });
+
+  it('opens on a real path when there is one, and on the text box otherwise', () => {
+    expect(initialPathChoice(EXAMPLES)).toBe('/contacts');
+    expect(initialPathChoice([])).toBe(CUSTOM_PATH);
+    // With nothing to suggest, the dropdown would hold only "Other".
+    expect(pathOptions([])).toHaveLength(1);
+  });
+
+  it('sends the typed path only when Other is selected', () => {
+    expect(chosenPath('/deals', '/whatever')).toBe('/deals');
+    expect(chosenPath(CUSTOM_PATH, '/whatever')).toBe('/whatever');
+    // An empty text box then fails validation, which says what to type.
+    expect(normalizePassthroughPath(chosenPath(CUSTOM_PATH, ''))).toHaveProperty('error');
   });
 });
 
