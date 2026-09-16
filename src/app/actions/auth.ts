@@ -97,8 +97,16 @@ export async function createFirstAccount(formData: FormData) {
     return { error: 'That server password is not correct.' }
   }
 
+  // The first account owns the deployment, and is the only one that can invite
+  // anybody else into it.
   const user = await prisma.dashboardUser.create({
-    data: { email, name: name || null, passwordHash: await hashPassword(password), lastLoginAt: new Date() },
+    data: {
+      email,
+      name: name || null,
+      passwordHash: await hashPassword(password),
+      role: 'OWNER',
+      lastLoginAt: new Date(),
+    },
   })
 
   await startSession(user.id, readNext(formData))

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import prisma from './prisma';
+import { asRole, canManageTeam, type Role } from './dashboard/roles';
 import { SESSION_COOKIE, issueSessionToken, sessionSubject, verifySessionToken } from './session-token';
 
 /**
@@ -36,16 +37,27 @@ export async function hasDashboardSession(): Promise<boolean> {
   return verifySessionToken(store.get(SESSION_COOKIE)?.value);
 }
 
+export interface DashboardAccount {
+  id: string;
+  email: string;
+  name: string | null;
+  role: Role;
+}
+
 /** The signed-in account, or null. A deleted account's cookie stops working here. */
-export async function currentUser(): Promise<{ id: string; email: string; name: string | null } | null> {
+export async function currentUser(): Promise<DashboardAccount | null> {
   const store = await cookies();
   const userId = await sessionSubject(store.get(SESSION_COOKIE)?.value);
   if (!userId) return null;
 
-  return prisma.dashboardUser.findUnique({
+  const user = await prisma.dashboardUser.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, role: true },
   });
+
+  // The role is normalized on the way in, so no caller has to deal with a value
+  // the database accepted but this version of the code does not know.
+  return user ? { ...user, role: asRole(user.role) } : null;
 }
 
 /**
@@ -54,10 +66,24 @@ export async function currentUser(): Promise<{ id: string; email: string; name: 
  *
  * Returns the account so callers can attribute what they do.
  */
-export async function requireDashboardSession(): Promise<{ id: string; email: string; name: string | null }> {
+export async function requireDashboardSession(): Promise<DashboardAccount> {
   const user = await currentUser();
   if (!user) {
     throw new Error('Unauthorized: this action requires an authenticated dashboard session.');
+  }
+  return user;
+}
+
+/**
+ * Guard for the actions only an owner may run.
+ *
+ * Same shape as requireDashboardSession, so an action that needs the stronger
+ * check is one word different and cannot silently forget it.
+ */
+export async function requireOwner(): Promise<DashboardAccount> {
+  const user = await requireDashboardSession();
+  if (!canManageTeam(user.role)) {
+    throw new Error('Forbidden: this action requires an owner account.');
   }
   return user;
 }

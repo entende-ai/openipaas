@@ -3,7 +3,7 @@
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { generateApiKeyValue } from '@/lib/crypto'
-import { requireDashboardSession } from '@/lib/auth-session'
+import { requireDashboardSession, requireOwner } from '@/lib/auth-session'
 
 export async function createClient(formData: FormData) {
   await requireDashboardSession()
@@ -41,8 +41,12 @@ export async function generateApiKey(clientId: string, name?: string) {
   return { success: true, apiKey: plaintext, warning: 'Copy this key now. It cannot be shown again.' }
 }
 
+/** Revoking breaks whatever is calling with that key, and cannot be undone. */
 export async function revokeApiKey(apiKeyId: string) {
-  await requireDashboardSession()
+  await requireOwner()
+
+  const key = await prisma.apiKey.findUnique({ where: { id: apiKeyId }, select: { id: true } })
+  if (!key) return { error: 'That key no longer exists.' }
 
   await prisma.apiKey.update({ where: { id: apiKeyId }, data: { revokedAt: new Date() } })
 

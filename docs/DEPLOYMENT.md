@@ -116,12 +116,47 @@ land on an instance that never saw the first attempt and so runs it twice.
 People sign in with an email and a password, kept as a scrypt hash in the
 database. A fresh deployment has no account, so `/login` offers to create one,
 and asks for `DASHBOARD_PASSWORD` to prove the person setting it up owns the
-deployment. That is the only way an account is created today, so do this before
-announcing the URL. Once an account exists, the setup form is gone for good.
+deployment. Do this before announcing the URL. Once an account exists, the
+setup form is gone for good.
+
+That first account is an **owner**. Everyone else is added from **Team** in the
+console.
 
 Forgotten passwords are reset on the same page, again with
 `DASHBOARD_PASSWORD`. There is no recovery email, because a self-hosted install
 has no mail server to send one from.
+
+### Adding your colleagues
+
+**Team** lists everyone who can sign in. An owner creates the account with a
+first password and passes it on privately; the person changes it themselves
+under **Your password**, and from then on the owner does not know it. There are
+no invitation emails, for the same reason there is no password recovery email.
+
+Two roles:
+
+| | Owner | Member |
+| --- | --- | --- |
+| Clients, API keys, connecting accounts, playground, logs | yes | yes |
+| Revoke an API key, disconnect an account | yes | no |
+| Copy a connected account's token | yes | no |
+| Add, promote, demote or remove people | yes | no |
+
+The one-way actions are the owner's, because revoking a key breaks whatever is
+calling with it and disconnecting an account means the end customer has to
+authorize the app again.
+
+A deployment always keeps at least one owner: the last one cannot be demoted or
+removed, and nobody can remove their own account.
+
+What this does **not** do yet: everyone sees every client. Restricting who sees
+which customer is [issue #32](https://github.com/entende-ai/openipaas/issues/32)
+and [issue #33](https://github.com/entende-ai/openipaas/issues/33). Add people
+you would trust with the whole console.
+
+Removing an account stops the next dashboard request, not the current session
+token, which expires within 12 hours. For an urgent removal, rotate
+`DASHBOARD_SESSION_SECRET`, which signs everyone out.
 
 ### Connecting a provider
 
