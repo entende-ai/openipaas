@@ -15,7 +15,8 @@
     "dev:docker": "npm run setup && npm run dev",
     "setup:env": "npx tsx scripts/setup-env.ts",
     "generate-provider": "npx tsx scripts/generate-provider.ts",
-    "encrypt-credentials": "npx tsx scripts/encrypt-credentials.ts"
+    "encrypt-credentials": "npx tsx scripts/encrypt-credentials.ts",
+    "seed:crm": "npx tsx scripts/seed-crm-sandbox.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
