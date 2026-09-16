@@ -44,7 +44,9 @@ const SINGULAR: Record<ResourceName, string> = {
 const VERB: Record<Operation, string> = {
   list: 'list',
   get: 'get',
+  search: 'search',
   create: 'create',
+  upsert: 'upsert',
   update: 'update',
   delete: 'delete',
   bulkDelete: 'bulk_delete',
@@ -54,7 +56,9 @@ const VERB: Record<Operation, string> = {
 };
 
 export function toolName(resource: ResourceName, operation: Operation): string {
-  const noun = operation === 'list' || operation.startsWith('bulk') ? resource : SINGULAR[resource];
+  // A search returns however many it finds, so it reads as plural like a list.
+  const many = operation === 'list' || operation === 'search' || operation.startsWith('bulk');
+  const noun = many ? resource : SINGULAR[resource];
   return `${VERB[operation]}_${noun}`;
 }
 
@@ -65,6 +69,21 @@ const LIST_SCHEMA = {
     limit: { type: 'integer', minimum: 1, maximum: 200, description: 'Page size, at most 200.' },
     search: { type: 'string', description: 'Free-text search, where the provider supports it.' },
   },
+  additionalProperties: false,
+};
+
+const MATCH_PROPERTIES = {
+  field: {
+    type: 'string',
+    description: "The field to match on, for example 'email'. The provider decides which fields it accepts.",
+  },
+  value: { type: 'string', description: 'The value to match.' },
+};
+
+const MATCH_SCHEMA = {
+  type: 'object',
+  properties: MATCH_PROPERTIES,
+  required: ['field', 'value'],
   additionalProperties: false,
 };
 
@@ -104,8 +123,24 @@ function schemaFor(resource: ResourceName, operation: Operation): Record<string,
   switch (operation) {
     case 'list':
       return LIST_SCHEMA;
+    case 'search':
+      return MATCH_SCHEMA;
     case 'create':
       return writeSchema(resource, false);
+    case 'upsert':
+      return {
+        type: 'object',
+        properties: {
+          ...MATCH_PROPERTIES,
+          data: {
+            type: 'object',
+            description: `Unified ${resource} fields to write, whether the record is created or updated.`,
+            additionalProperties: true,
+          },
+        },
+        required: ['field', 'value', 'data'],
+        additionalProperties: false,
+      };
     case 'update':
       return writeSchema(resource, true);
     case 'bulkDelete':
@@ -126,8 +161,19 @@ function describe(manifest: ProviderManifest, resource: ResourceName, operation:
       return `List ${resource} ${where}. Returns one page plus a cursor; call again with the cursor for the next page.`;
     case 'get':
       return `Fetch one ${noun} ${where} by id.`;
+    case 'search':
+      return (
+        `Find ${resource} ${where} by a field other than the id, such as an email. ` +
+        'Returns every match, which may be none or several.'
+      );
     case 'create':
       return `Create a ${noun} ${where}.`;
+    case 'upsert':
+      return (
+        `Create a ${noun} ${where}, or update the existing one if the match finds it. ` +
+        'Use this instead of create when you are not sure whether the record is already there. ' +
+        'A match that finds several records fails rather than picking one.'
+      );
     case 'update':
       return `Update an existing ${noun} ${where}. Only the fields you send are changed.`;
     case 'delete':
@@ -144,7 +190,7 @@ function describe(manifest: ProviderManifest, resource: ResourceName, operation:
 }
 
 const DESTRUCTIVE: Operation[] = ['delete', 'bulkDelete'];
-const READ_ONLY: Operation[] = ['list', 'get', 'pdf'];
+const READ_ONLY: Operation[] = ['list', 'get', 'search', 'pdf'];
 
 /** The tools a connected account exposes, derived from its manifest. */
 export function toolsFor(manifest: ProviderManifest): McpTool[] {
@@ -158,7 +204,7 @@ export function toolsFor(manifest: ProviderManifest): McpTool[] {
 
       tools.push({
         name: toolName(resource as ResourceName, operation),
-        title: `${operation === 'list' ? 'List' : operation[0].toUpperCase() + operation.slice(1)} ${resource}`,
+        title: `${operation[0].toUpperCase() + operation.slice(1)} ${resource}`,
         description: describe(manifest, resource as ResourceName, operation),
         inputSchema: schemaFor(resource as ResourceName, operation),
         annotations: {
@@ -248,6 +294,10 @@ export function callArgs(binding: ToolBinding, args: Record<string, unknown>): u
   }
 
   switch (binding.operation) {
+    case 'search':
+      return [{ field: args.field, value: args.value }];
+    case 'upsert':
+      return [{ field: args.field, value: args.value }, args.data ?? {}];
     case 'list':
       return [
         {

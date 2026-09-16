@@ -1,10 +1,13 @@
 import { BaseProvider } from '@/lib/providers/core/BaseProvider';
 import { encodeCursor, readPage } from '@/lib/providers/core/pagination';
+import { ProviderError } from '@/lib/providers/core/errors';
 import type {
   ListParams,
   Page,
   ProviderContext,
   ProviderManifest,
+  RecordMatch,
+  UpsertResult,
 } from '@/lib/providers/core/types';
 import type { UnifiedCompany, UnifiedContact, UnifiedDeal, UnifiedOwner, UnifiedPipeline } from '@/types/unified';
 
@@ -41,6 +44,22 @@ import {
  */
 
 const DEFAULT_PAGE_SIZE = 25;
+
+/**
+ * What RD documents as filterable on GET /contacts.
+ *
+ * Kept as a list because RD answers an unknown filter property by returning
+ * every record rather than none, so an unchecked field behind an upsert reads
+ * as "matches 25 contacts" at best and overwrites a stranger at worst.
+ */
+const CONTACT_MATCH_FIELDS = [
+  'email',
+  'phone',
+  'name',
+  'job_title',
+  'whatsapp_username',
+  'organization_id',
+] as const;
 
 interface RdListResponse {
   data?: unknown[];
@@ -90,6 +109,82 @@ export class RdStationCrmProvider extends BaseProvider {
     });
 
     return mapRdContactToUnified(unwrap(response), await this.ownerLookup(ctx));
+  }
+
+  async searchContacts(ctx: ProviderContext, match: RecordMatch): Promise<Page<UnifiedContact>> {
+    this.assertSupports('contacts', 'search');
+
+    const { data, nextCursor } = await this.searchPage(ctx, '/contacts', match, CONTACT_MATCH_FIELDS);
+    const owners = await this.ownerLookup(ctx);
+
+    return this.page(
+      data.map((raw) => mapRdContactToUnified(raw, owners)),
+      { nextCursor }
+    );
+  }
+
+  /**
+   * Create or update a contact, chosen by the match.
+   *
+   * RD has no upsert endpoint for the CRM, so this is a search followed by a
+   * PUT or a POST. Two consequences worth knowing: it costs two calls, and it
+   * is not atomic, so two callers upserting the same new contact at the same
+   * moment can both create one. RD has no natural-key constraint to lean on.
+   */
+  async upsertContact(
+    ctx: ProviderContext,
+    match: RecordMatch,
+    data: Partial<UnifiedContact>
+  ): Promise<UpsertResult<UnifiedContact>> {
+    this.assertSupports('contacts', 'upsert');
+
+    const { data: found } = await this.searchPage(ctx, '/contacts', match, CONTACT_MATCH_FIELDS);
+
+    // Picking the first of several would write to somebody's record at random.
+    if (found.length > 1) {
+      throw new ProviderError(
+        'INVALID_REQUEST',
+        `${match.field} "${match.value}" matches ${found.length} contacts. Use a match that identifies one.`,
+        { provider: this.manifest.slug }
+      );
+    }
+
+    // The write goes out before the owner names are fetched: reference data is
+    // only needed to render the answer, and fetching it first would delay the
+    // part that matters.
+    if (found.length === 0) {
+      const created = await this.request(ctx, {
+        method: 'POST',
+        path: '/contacts',
+        body: { data: mapUnifiedContactToRd(this.withMatch(match, data)) },
+      });
+      return { record: mapRdContactToUnified(unwrap(created), await this.ownerLookup(ctx)), created: true };
+    }
+
+    // PUT /contacts/{id} is a partial update: only the fields sent are changed.
+    const updated = await this.request(ctx, {
+      method: 'PUT',
+      path: `/contacts/${encodeURIComponent(found[0].id)}`,
+      body: { data: mapUnifiedContactToRd(data) },
+    });
+
+    return { record: mapRdContactToUnified(unwrap(updated), await this.ownerLookup(ctx)), created: false };
+  }
+
+  /**
+   * The matched value belongs in the record it creates.
+   *
+   * Upserting on an email that the payload does not repeat should still produce
+   * a contact with that email, otherwise the next upsert creates another one.
+   */
+  private withMatch(match: RecordMatch, data: Partial<UnifiedContact>): Partial<UnifiedContact> {
+    if (match.field === 'email' && !data.email && !data.emails?.length) {
+      return { ...data, email: match.value };
+    }
+    if (match.field === 'phone' && !data.phones?.length) {
+      return { ...data, phones: [match.value] };
+    }
+    return data;
   }
 
   /* ---------------------------------------------------------------- *
@@ -208,6 +303,61 @@ export class RdStationCrmProvider extends BaseProvider {
     const hasNext = Boolean(response?.links?.next);
 
     return { data, nextCursor: hasNext ? encodeCursor({ page: page + 1 }) : null };
+  }
+
+  /**
+   * One page of an RD list endpoint filtered by a natural key.
+   *
+   * RDQL is `property:value` separated by spaces, and the properties a given
+   * endpoint accepts are listed per endpoint in RD's reference. Anything else
+   * is refused here rather than sent, because RD answers an unknown property
+   * with every record rather than none, and a silent full-table match behind an
+   * upsert is how the wrong person's record gets overwritten.
+   */
+  private async searchPage(
+    ctx: ProviderContext,
+    path: string,
+    match: RecordMatch,
+    allowed: readonly string[]
+  ): Promise<{ data: any[]; nextCursor: string | null }> {
+    const field = (match?.field ?? '').trim();
+    const value = (match?.value ?? '').trim();
+
+    if (!value) {
+      throw new ProviderError('INVALID_REQUEST', 'A match needs a value.', { provider: this.manifest.slug });
+    }
+
+    // Custom fields are addressed with an @ prefix and vary per account, so they
+    // cannot be checked against a list.
+    const isCustomField = field.startsWith('@') && field.length > 1;
+    if (!isCustomField && !allowed.includes(field)) {
+      throw new ProviderError(
+        'INVALID_REQUEST',
+        `${this.manifest.name} cannot match contacts on "${field}". Use one of: ${allowed.join(', ')}, or @custom_field_slug.`,
+        { provider: this.manifest.slug }
+      );
+    }
+
+    // A space would start a second RDQL clause, so a value containing one is
+    // refused rather than quietly turned into a different query.
+    if (/\s/.test(value)) {
+      throw new ProviderError(
+        'INVALID_REQUEST',
+        'A match value cannot contain spaces: RD Station reads them as another filter.',
+        { provider: this.manifest.slug }
+      );
+    }
+
+    const response = await this.request<RdListResponse>(ctx, {
+      method: 'GET',
+      path,
+      query: { filter: `${field}:${value}`, 'page[number]': 1, 'page[size]': DEFAULT_PAGE_SIZE },
+    });
+
+    const data = Array.isArray(response?.data) ? response.data : [];
+    const hasNext = Boolean(response?.links?.next);
+
+    return { data, nextCursor: hasNext ? encodeCursor({ page: 2 }) : null };
   }
 
   /**

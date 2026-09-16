@@ -82,6 +82,29 @@ const LIST_PARAMS = [
 
 const ID_PARAM = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
 
+const MATCH_PARAMS = [
+  {
+    name: 'field',
+    in: 'query',
+    required: true,
+    schema: { type: 'string' },
+    description: "Field to match on, for example 'email'.",
+  },
+  { name: 'value', in: 'query', required: true, schema: { type: 'string' }, description: 'Value to match.' },
+];
+
+/** What an upsert answers with: the record, plus whether it was new. */
+function upsertOf(ref: string) {
+  return {
+    type: 'object',
+    properties: {
+      record: { $ref: `#/components/schemas/${ref}` },
+      created: { type: 'boolean', description: 'True when the record did not exist and was created.' },
+    },
+    required: ['record', 'created'],
+  };
+}
+
 function listOp(tag: string, summary: string, ref: string) {
   return {
     tags: [tag],
@@ -227,6 +250,16 @@ export const openApiSpec = {
       Sale: schemaOf(UnifiedSaleSchema),
       Seller: schemaOf(UnifiedSellerSchema),
       Contact: schemaOf(UnifiedContactSchema),
+      ContactUpsert: {
+        type: 'object',
+        description: 'The match plus the fields to write. `match: { field, value }` is accepted too.',
+        properties: {
+          field: { type: 'string', description: "Field to match on, for example 'email'." },
+          value: { type: 'string', description: 'Value to match.' },
+          data: { $ref: '#/components/schemas/Contact' },
+        },
+        required: ['field', 'value', 'data'],
+      },
       Company: schemaOf(UnifiedCompanySchema),
       Deal: schemaOf(UnifiedDealSchema),
       Pipeline: schemaOf(UnifiedPipelineSchema),
@@ -245,6 +278,42 @@ export const openApiSpec = {
     },
     '/contacts/{id}': {
       get: getOp('CRM', 'Fetch a contact', 'Contact'),
+    },
+    '/contacts/search': {
+      get: {
+        tags: ['CRM'],
+        summary: 'Find contacts by a natural key',
+        description:
+          'Matches on a field the provider can filter by, such as an email address. ' +
+          'Which fields are accepted is up to the provider, and an unsupported one is refused with INVALID_REQUEST.',
+        parameters: MATCH_PARAMS,
+        responses: {
+          '200': { description: 'The matches, which may be none', content: { 'application/json': { schema: pageOf('Contact') } } },
+          ...COMMON_ERRORS,
+        },
+      },
+    },
+    '/contacts/upsert': {
+      post: {
+        tags: ['CRM'],
+        summary: 'Create a contact, or update the one the match finds',
+        description:
+          'Answers 201 when it created the record and 200 when it updated one, and repeats that in `created`. ' +
+          'A match that finds more than one record is refused rather than resolved by guessing.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ContactUpsert' } } },
+        },
+        responses: {
+          '200': { description: 'Updated', content: { 'application/json': { schema: upsertOf('Contact') } } },
+          '201': { description: 'Created', content: { 'application/json': { schema: upsertOf('Contact') } } },
+          '422': {
+            description: 'The match found more than one record',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+          ...COMMON_ERRORS,
+        },
+      },
     },
     '/companies': {
       get: listOp('CRM', 'List companies', 'Company'),

@@ -260,3 +260,93 @@ describe('RD Station pipelines', () => {
     expect(page.hasMore).toBe(false);
   });
 });
+
+describe('RD Station contact search and upsert', () => {
+  it('filters with RDQL rather than fetching everything and sifting', async () => {
+    const { stub, sut } = provider([{ json: { data: [CONTACT], links: { next: null } } }, USERS]);
+
+    const page = await sut.searchContacts(ctx, { field: 'email', value: 'maria@exemplo.com.br' });
+
+    const url = new URL(stub.calls[0].url);
+    expect(url.pathname).toBe('/crm/v2/contacts');
+    expect(url.searchParams.get('filter')).toBe('email:maria@exemplo.com.br');
+    expect(page.items[0].id).toBe('c1');
+  });
+
+  /**
+   * RD answers an unknown filter property with every record instead of none, so
+   * an unchecked field behind an upsert would match a stranger and overwrite
+   * them. The check has to happen before the request, not after.
+   */
+  it('refuses a field RD does not filter on, without calling RD', async () => {
+    const { stub, sut } = provider([{ json: { data: [], links: { next: null } } }]);
+
+    await expect(sut.searchContacts(ctx, { field: 'cpf', value: '111' })).rejects.toThrow(/cannot match contacts/);
+    expect(stub.calls).toHaveLength(0);
+  });
+
+  it('allows a custom field, which is per account and cannot be listed', async () => {
+    const { stub, sut } = provider([{ json: { data: [], links: { next: null } } }, USERS]);
+
+    await sut.searchContacts(ctx, { field: '@cpf', value: '11111111111' });
+    expect(new URL(stub.calls[0].url).searchParams.get('filter')).toBe('@cpf:11111111111');
+  });
+
+  // A space starts a second RDQL clause, so it would silently become another query.
+  it('refuses a value with a space in it', async () => {
+    const { stub, sut } = provider([{ json: { data: [], links: { next: null } } }]);
+
+    await expect(sut.searchContacts(ctx, { field: 'name', value: 'Maria Souza' })).rejects.toThrow(/spaces/);
+    expect(stub.calls).toHaveLength(0);
+  });
+
+  it('creates when the match finds nothing, and keeps the matched email', async () => {
+    const { stub, sut } = provider([
+      { json: { data: [], links: { next: null } } },
+      { status: 201, json: { data: { ...CONTACT, id: 'c9' } } },
+      USERS,
+    ]);
+
+    const result = await sut.upsertContact(ctx, { field: 'email', value: 'nova@exemplo.com.br' }, { name: 'Nova' });
+
+    expect(result.created).toBe(true);
+    expect(stub.calls[1].method).toBe('POST');
+    // Without this the next upsert on the same email creates another contact.
+    expect(stub.calls[1].body).toEqual({
+      data: { name: 'Nova', emails: [{ email: 'nova@exemplo.com.br' }] },
+    });
+  });
+
+  it('updates the one it found, with PUT and only the fields sent', async () => {
+    const { stub, sut } = provider([
+      { json: { data: [CONTACT], links: { next: null } } },
+      { json: { data: { ...CONTACT, job_title: 'CEO' } } },
+      USERS,
+    ]);
+
+    const result = await sut.upsertContact(ctx, { field: 'email', value: 'maria@exemplo.com.br' }, { title: 'CEO' });
+
+    expect(result.created).toBe(false);
+    expect(result.record.title).toBe('CEO');
+    expect(stub.calls[1].method).toBe('PUT');
+    expect(new URL(stub.calls[1].url).pathname).toBe('/crm/v2/contacts/c1');
+    expect(stub.calls[1].body).toEqual({ data: { name: undefined, job_title: 'CEO' } });
+  });
+
+  /**
+   * Writing to whichever one came back first would put somebody's data on a
+   * stranger's record, and the caller would never know.
+   */
+  it('refuses to guess when the match finds several', async () => {
+    const { stub, sut } = provider([
+      { json: { data: [CONTACT, { ...CONTACT, id: 'c2' }], links: { next: null } } },
+    ]);
+
+    await expect(
+      sut.upsertContact(ctx, { field: 'name', value: 'Maria' }, { title: 'CEO' })
+    ).rejects.toThrow(/matches 2 contacts/);
+
+    // One call: the search. Nothing was written.
+    expect(stub.calls).toHaveLength(1);
+  });
+});
