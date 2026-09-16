@@ -128,6 +128,20 @@ curl https://your-host/api/unified/v1/passthrough/pessoas?pagina=1 \
   -H "X-Account-Token: ..."
 ```
 
+## 🌱 Sandbox data
+
+An empty CRM makes for a bad first call: every list comes back `{"data": []}` and there is no way to tell a working integration from a broken one. This fills a trial account with fake companies, contacts and deals, through the unified API itself:
+
+```bash
+# Prints the plan and writes nothing
+npm run seed:crm -- --api-key oip_live_... --account-token <account token>
+
+# Writes
+npm run seed:crm -- --api-key oip_live_... --account-token <account token> --confirm
+```
+
+Every record is named with a `[sandbox]` marker so it can be found and deleted later, and each resource is capped at 50 per run. Point it at a trial account, never at one with real customers in it.
+
 ## ➕ Adding a provider
 
 ```bash
