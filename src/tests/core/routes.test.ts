@@ -22,8 +22,9 @@ describe('dashboard routes', () => {
     expect(pageExists('/dashboard')).toBe(true);
   });
 
-  it('has a page behind every link in the sidebar', () => {
-    const source = readFileSync(path.join('src', 'components', 'Sidebar.tsx'), 'utf8');
+  it('has a page behind every link in the navigation', () => {
+    // Shared by the sidebar and the mobile bar.
+    const source = readFileSync(path.join('src', 'components', 'nav-items.ts'), 'utf8');
     const routes = [...source.matchAll(/href:\s*'([^']+)'/g)].map((match) => match[1]);
 
     expect(routes.length).toBeGreaterThan(0);

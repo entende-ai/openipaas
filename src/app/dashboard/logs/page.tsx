@@ -16,9 +16,9 @@ export default async function LogsPage() {
   const [logs, stats] = await Promise.all([listRecentRequests({ limit: 100 }), requestStats()])
 
   return (
-    <div className="space-y-4 max-w-6xl w-full mx-auto">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">API Logs</h2>
+        <h2 className="text-2xl font-bold tracking-tight">API logs</h2>
         <p className="text-muted-foreground">Every unified API call, as it happened.</p>
       </div>
 

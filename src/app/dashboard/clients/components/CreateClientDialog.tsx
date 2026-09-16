@@ -21,7 +21,7 @@ export function CreateClientDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button />}>
-        Create Client
+        Create client
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -34,7 +34,7 @@ export function CreateClientDialog() {
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create Client'}
+              {isLoading ? 'Creating…' : 'Create client'}
             </Button>
           </DialogFooter>
         </form>
