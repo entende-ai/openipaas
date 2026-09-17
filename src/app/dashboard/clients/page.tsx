@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { CreateClientDialog } from './components/CreateClientDialog'
 import { GenerateKeyButton } from './components/GenerateKeyButton'
 import { RevokeKeyButton } from './components/RevokeKeyButton'
+import { ClientName } from './components/ClientName'
 import { currentUser } from '@/lib/auth-session'
 import { canDestroy } from '@/lib/dashboard/roles'
 
@@ -60,7 +61,7 @@ export default async function ClientsPage() {
             <Card key={client.id}>
               <CardHeader className="flex-row flex-wrap items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1">
-                  <CardTitle className="text-base">{client.name}</CardTitle>
+                  <ClientName clientId={client.id} name={client.name} />
                   <CardDescription>
                     Created {client.createdAt.toISOString().slice(0, 10)} · {client._count.linkedAccounts} connection
                     {client._count.linkedAccounts === 1 ? '' : 's'}
