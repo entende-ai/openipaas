@@ -155,8 +155,8 @@ function Handover({ message }: { message: Extract<Message, { kind: 'success' }> 
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Copy it now. Once you leave this page the password is gone, and there is no reset yet: if it is lost, remove
-        the account and create it again.
+        Copy it now: once you leave this page the password is gone. If it is lost, a new one can be set from the
+        sign-in screen with the server password.
       </p>
     </div>
   )
