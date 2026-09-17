@@ -26,6 +26,28 @@ model DashboardUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   lastLoginAt  DateTime?
+
+  passwordResets PasswordResetToken[]
+}
+
+/// One password reset link, in the state it was left in.
+///
+/// The link is the credential, so only its hash is here: a database dump, a log
+/// line or a backup cannot be turned back into a working link. Rows are kept
+/// after use because two of them side by side are how you see a link being
+/// replayed.
+model PasswordResetToken {
+  id     String        @id @default(uuid())
+  userId String
+  user   DashboardUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// sha256 of the token in the URL, hex. Unique, so a collision is a conflict
+  /// rather than two accounts sharing a link.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Client {

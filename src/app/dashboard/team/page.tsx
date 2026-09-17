@@ -1,8 +1,9 @@
 import prisma from '@/lib/prisma'
 import { currentUser } from '@/lib/auth-session'
 import { canManageTeam, isOwner, lastSeen, roleLabel } from '@/lib/dashboard/roles'
+import { emailStatus } from '@/lib/email'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { AddAccountForm } from './components/AddAccountForm'
 import { AccountActions } from './components/AccountActions'
@@ -10,6 +11,19 @@ import { ChangePasswordForm } from './components/ChangePasswordForm'
 import { PageHeader } from '@/components/dashboard/PageHeader'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Whether a reset link will actually be sent, said before anyone presses the
+ * button. It names the provider and never the key: emailStatus carries no
+ * secret, and this is a screen a whole team can open.
+ */
+function mailNote(status: ReturnType<typeof emailStatus>): string {
+  if (status.canSend) return `Reset links are emailed through ${status.provider}, from ${status.from}.`
+
+  return status.problems.length > 0
+    ? `Mail is half configured (${status.problems.join(' ')}), so a reset link is shown here to pass on by hand. See docs/EMAIL.md.`
+    : 'No mail provider is configured, so a reset link is shown here to pass on by hand. See docs/EMAIL.md to have it emailed.'
+}
 
 /**
  * Who can sign in to this console.
@@ -37,6 +51,7 @@ export default async function TeamPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Accounts</CardTitle>
+          {canManage && <CardDescription>{mailNote(emailStatus())}</CardDescription>}
         </CardHeader>
         <CardContent className="space-y-1">
           {users.map((user) => (

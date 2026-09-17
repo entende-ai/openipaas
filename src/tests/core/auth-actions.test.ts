@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   redirectedTo: null as string | null,
   updates: [] as { where: Where; data: Fields }[],
   creates: [] as Fields[],
+  retiredLinksFor: [] as string[],
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -38,6 +39,12 @@ vi.mock('@/lib/prisma', () => ({
         const user = state.users.find((u) => u.id === where.id);
         if (user) Object.assign(user, data);
         return user;
+      },
+    },
+    passwordResetToken: {
+      updateMany: async ({ where }: { where: { userId: string } }) => {
+        state.retiredLinksFor.push(where.userId);
+        return { count: 0 };
       },
     },
   },
@@ -101,6 +108,7 @@ beforeEach(() => {
   state.redirectedTo = null;
   state.updates = [];
   state.creates = [];
+  state.retiredLinksFor = [];
   vi.stubEnv('DASHBOARD_PASSWORD', OPERATOR_PASSWORD);
   vi.stubEnv('DASHBOARD_SESSION_SECRET', 'test-session-secret');
   vi.stubEnv('NODE_ENV', 'test');
@@ -222,6 +230,19 @@ describe('password reset', () => {
     expect(newHash).not.toBe(oldHash);
     expect(await verifyPassword('the-new-password', newHash)).toBe(true);
     expect(await verifyPassword('the-old-password', newHash)).toBe(false);
+  });
+
+  // A link already in an inbox would otherwise still set a password afterwards.
+  it('retires any reset link that was in flight', async () => {
+    await seedUser('tech@entende.ai', 'the-old-password');
+
+    await run(resetPassword, {
+      email: 'tech@entende.ai',
+      password: 'the-new-password',
+      operatorPassword: OPERATOR_PASSWORD,
+    });
+
+    expect(state.retiredLinksFor).toEqual(['user-existing']);
   });
 
   it('refuses without the server password', async () => {
