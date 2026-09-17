@@ -10,11 +10,21 @@ import { createClient } from '@/app/actions/client'
 export function CreateClientDialog() {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function onSubmit(formData: FormData) {
     setIsLoading(true)
-    await createClient(formData)
+    setError(null)
+
+    // The action validates and answers; this used to close the dialog either
+    // way, so a rejected name looked like a client that had been created.
+    const result = await createClient(formData)
     setIsLoading(false)
+
+    if (result && 'error' in result) {
+      setError(result.error)
+      return
+    }
     setOpen(false)
   }
 
@@ -32,6 +42,8 @@ export function CreateClientDialog() {
             <Label htmlFor="name">Client Name</Label>
             <Input id="name" name="name" required placeholder="Acme Corp" />
           </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? 'Creating…' : 'Create client'}
