@@ -212,3 +212,54 @@ describe('the envelope', () => {
     expect('message' in parsed && parsed.message.id).toBeUndefined();
   });
 });
+
+describe('search and upsert as tools', () => {
+  const manifest = manifestWith({ capabilities: { contacts: ['list', 'search', 'create', 'upsert'] } });
+
+  it('names them for what they return', () => {
+    const names = toolsFor(manifest).map((tool) => tool.name);
+
+    // A search returns however many it finds, an upsert touches exactly one.
+    expect(names).toContain('search_contacts');
+    expect(names).toContain('upsert_contact');
+  });
+
+  it('tells the model when to reach for upsert instead of create', () => {
+    const upsert = toolsFor(manifest).find((tool) => tool.name === 'upsert_contact');
+
+    expect(upsert?.description).toContain('not sure whether the record is already there');
+    expect(upsert?.description).toContain('fails rather than picking one');
+    expect(upsert?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+  });
+
+  it('marks a search as read only, so a cautious client does not prompt for it', () => {
+    const search = toolsFor(manifest).find((tool) => tool.name === 'search_contacts');
+    expect(search?.annotations).toMatchObject({ readOnlyHint: true });
+    expect(search?.inputSchema).toMatchObject({ required: ['field', 'value'] });
+  });
+
+  it('orders the arguments the way the provider methods take them', () => {
+    const search = callArgs(bindingFor(manifest, 'search_contacts')!, { field: 'email', value: 'a@b.c' });
+    expect(search).toEqual([{ field: 'email', value: 'a@b.c' }]);
+
+    const upsert = callArgs(bindingFor(manifest, 'upsert_contact')!, {
+      field: 'email',
+      value: 'a@b.c',
+      data: { name: 'Ana' },
+    });
+    expect(upsert).toEqual([{ field: 'email', value: 'a@b.c' }, { name: 'Ana' }]);
+  });
+
+  it('calls the provider and reports whether it created', async () => {
+    const upsertContact = vi.fn().mockResolvedValue({ record: { id: 'c1', name: 'Ana' }, created: true });
+    const ctx = contextFor(manifest, { upsertContact });
+
+    const response = await dispatch(
+      rpc('tools/call', { name: 'upsert_contact', arguments: { field: 'email', value: 'a@b.c', data: { name: 'Ana' } } }),
+      ctx
+    );
+
+    expect(upsertContact).toHaveBeenCalledWith(CREDENTIALS, { field: 'email', value: 'a@b.c' }, { name: 'Ana' });
+    expect((response.result as any).structuredContent).toMatchObject({ created: true });
+  });
+});

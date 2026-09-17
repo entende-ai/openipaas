@@ -9,6 +9,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [4. Make the first call](#4-make-the-first-call)
 - [Paging through a list](#paging-through-a-list)
 - [Writing](#writing)
+- [Writing a record you may already have](#writing-a-record-you-may-already-have)
 - [Knowing what a provider can do](#knowing-what-a-provider-can-do)
 - [Errors](#errors)
 - [Passthrough](#passthrough)
@@ -114,6 +115,35 @@ Send an `Idempotency-Key` on every write. Retrying with the same key replays the
 
 The response is the created record in unified shape, with the provider's id in `id`.
 
+## Writing a record you may already have
+
+Most sync code does not know whether the contact exists. The honest answer used to be: call create, catch a provider-specific duplicate error, parse it, call update. That is exactly the provider-specific branching this API exists to remove.
+
+```bash
+curl -X POST https://app.openipaas.com/api/unified/v1/contacts/upsert \
+  -H "Authorization: Bearer oip_live_..." \
+  -H "X-Account-Token: 0f5a..." \
+  -H "Content-Type: application/json" \
+  -d '{"field": "email", "value": "ana@exemplo.com.br", "data": {"name": "Ana Ribeiro", "title": "CEO"}}'
+```
+
+```json
+{ "record": { "id": "65f1c0...", "name": "Ana Ribeiro", "title": "CEO" }, "created": false }
+```
+
+- **`created` tells you which happened**, and the status says it too: `201` when it created, `200` when it updated. A sync that counts what it added does not need another call to find out.
+- **Only the fields you send are written.** Everything else on the record is left alone.
+- **An ambiguous match is refused**, not resolved by guessing. If `field` and `value` find three contacts, you get an error naming the count, because writing to one of three at random is worse than failing.
+- **The field has to be one the provider can filter on.** RD Station CRM accepts `email`, `phone`, `name`, `job_title`, `whatsapp_username`, `organization_id`, and `@custom_field_slug`. Anything else is refused before the request leaves us, because RD answers an unknown filter by returning everything.
+- **It is not atomic.** Under the hood it is a search followed by a write, so two callers upserting the same new record at the same moment can both create one. No CRM in this catalog offers a natural-key constraint to lean on.
+
+To look without writing:
+
+```bash
+curl "https://app.openipaas.com/api/unified/v1/contacts/search?field=email&value=ana@exemplo.com.br" \
+  -H "Authorization: Bearer oip_live_..." -H "X-Account-Token: 0f5a..."
+```
+
 ## Knowing what a provider can do
 
 Not every provider does everything, and the API tells you rather than failing late:
@@ -168,7 +198,7 @@ claude mcp add --transport http openipaas https://app.openipaas.com/api/mcp \
 
 Any MCP client that speaks Streamable HTTP and can send headers works the same way.
 
-The tools are built from the connected account's capability matrix, not written per provider. An RD Station account offers `list_contacts`, `get_contact`, `create_contact`, `list_companies`, `list_deals`, `create_deal`, `list_pipelines` and `passthrough`. A Conta Azul account offers customers, products and sales instead, through the same endpoint. Ask the client to list tools rather than assuming a name exists.
+The tools are built from the connected account's capability matrix, not written per provider. An RD Station account offers `list_contacts`, `get_contact`, `search_contacts`, `create_contact`, `upsert_contact`, `list_companies`, `list_deals`, `create_deal`, `list_pipelines` and `passthrough`. A Conta Azul account offers customers, products and sales instead, through the same endpoint. Ask the client to list tools rather than assuming a name exists.
 
 Conventions worth knowing when you read a transcript:
 

@@ -40,13 +40,42 @@ export type ResourceName =
 export type Operation =
   | 'list'
   | 'get'
+  // Addressing a record by a natural key (an email, a document) rather than by
+  // the provider's id, which the caller usually does not have.
+  | 'search'
   | 'create'
   | 'update'
+  // Create or update in one call, decided by whether the match finds anything.
+  | 'upsert'
   | 'delete'
   | 'bulkDelete'
   | 'bulkActivate'
   | 'bulkDeactivate'
   | 'pdf';
+
+/**
+ * How to find a record without its provider id.
+ *
+ * One field and one value covers what providers actually key on: an email, a
+ * document, a SKU. A richer filter language is a different feature, and every
+ * provider that has one spells it differently.
+ */
+export interface RecordMatch {
+  field: string;
+  value: string;
+}
+
+/**
+ * The result of an upsert.
+ *
+ * `created` is not decoration: a caller syncing records needs to know whether it
+ * added a customer or touched an existing one, and finding out afterwards means
+ * another round trip.
+ */
+export interface UpsertResult<T> {
+  record: T;
+  created: boolean;
+}
 
 /** Declared, not discovered at runtime: what a provider can actually do. */
 export type CapabilityMap = Partial<Record<ResourceName, readonly Operation[]>>;
@@ -225,7 +254,20 @@ export interface SalesModule {
 export interface CrmModule {
   listContacts(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedContact>>;
   getContact?(ctx: ProviderContext, id: string): Promise<UnifiedContact>;
+  /** Find by a natural key. Returns a page because a match is not always unique. */
+  searchContacts?(ctx: ProviderContext, match: RecordMatch): Promise<Page<UnifiedContact>>;
   createContact?(ctx: ProviderContext, data: Partial<UnifiedContact>): Promise<UnifiedContact>;
+  /**
+   * Create or update, chosen by the match.
+   *
+   * An ambiguous match must fail rather than pick one: writing to the wrong
+   * person's record is worse than an error the caller can act on.
+   */
+  upsertContact?(
+    ctx: ProviderContext,
+    match: RecordMatch,
+    data: Partial<UnifiedContact>
+  ): Promise<UpsertResult<UnifiedContact>>;
   listCompanies?(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedCompany>>;
   getCompany?(ctx: ProviderContext, id: string): Promise<UnifiedCompany>;
   createCompany?(ctx: ProviderContext, data: Partial<UnifiedCompany>): Promise<UnifiedCompany>;

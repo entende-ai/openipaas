@@ -40,7 +40,7 @@ export const rdStationCrmManifest: ProviderManifest = {
   // need a decision about partial updates that the unified contract has not
   // taken yet.
   capabilities: {
-    contacts: ['list', 'get', 'create'],
+    contacts: ['list', 'get', 'search', 'create', 'upsert'],
     companies: ['list', 'get', 'create'],
     deals: ['list', 'get', 'create'],
     pipelines: ['list'],
