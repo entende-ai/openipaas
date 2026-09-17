@@ -179,7 +179,7 @@ describe('the conversation', () => {
   });
 
   it('answers an unknown method with method not found', async () => {
-    const response = await dispatch(rpc('resources/list'), contextFor(manifestWith({})));
+    const response = await dispatch(rpc('prompts/list'), contextFor(manifestWith({})));
     expect(response.error?.code).toBe(JSONRPC_ERRORS.METHOD_NOT_FOUND);
   });
 

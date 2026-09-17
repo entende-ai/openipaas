@@ -10,6 +10,7 @@ import {
   type JsonRpcResponse,
 } from './protocol';
 import { bindingFor, callArgs, toolsFor } from './tools';
+import { GUIDE_URI, readResource, resourcesFor } from './resources';
 
 /**
  * The MCP conversation, with no HTTP in it.
@@ -94,12 +95,13 @@ export async function dispatch(message: JsonRpcRequest, ctx: McpContext): Promis
     case 'initialize':
       return result(message.id, {
         protocolVersion: negotiateVersion(message.params?.protocolVersion),
-        capabilities: { tools: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, resources: { listChanged: false, subscribe: false } },
         serverInfo: SERVER_INFO,
         instructions:
           `Connected to ${ctx.provider.manifest.name} through Open IpaaS, on behalf of ${ctx.clientName}. ` +
           'Tools come from what this account actually supports, so call tools/list before assuming one exists. ' +
-          'Lists are paged: pass the returned nextCursor back as cursor to continue.',
+          'Lists are paged: pass the returned nextCursor back as cursor to continue. ' +
+          `Read ${GUIDE_URI} before the first call: it is written for this account and says what the answers mean.`,
       });
 
     case 'ping':
@@ -107,6 +109,38 @@ export async function dispatch(message: JsonRpcRequest, ctx: McpContext): Promis
 
     case 'tools/list':
       return result(message.id, { tools: toolsFor(ctx.provider.manifest) });
+
+    case 'resources/list':
+      return result(message.id, { resources: resourcesFor(ctx.provider.manifest) });
+
+    // Templates exist in the protocol and this server has none: every resource
+    // it serves has a fixed uri. Answering an empty list beats a client
+    // treating METHOD_NOT_FOUND as the server being broken.
+    case 'resources/templates/list':
+      return result(message.id, { resourceTemplates: [] });
+
+    case 'resources/read': {
+      const uri = message.params?.uri;
+
+      if (typeof uri !== 'string') {
+        return failure(message.id, JSONRPC_ERRORS.INVALID_PARAMS, 'resources/read requires a uri');
+      }
+
+      const contents = readResource(uri, {
+        manifest: ctx.provider.manifest,
+        clientName: ctx.clientName,
+      });
+
+      if (!contents) {
+        return failure(
+          message.id,
+          JSONRPC_ERRORS.INVALID_PARAMS,
+          `No resource at ${uri}. Call resources/list to see what this connection serves.`
+        );
+      }
+
+      return result(message.id, { contents: [{ uri, ...contents }] });
+    }
 
     case 'tools/call': {
       const outcome = await callTool(ctx, message.params);

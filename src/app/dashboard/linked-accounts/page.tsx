@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { ConnectErpDialog } from './components/ConnectErpDialog'
 import { CopyTokenButton } from './components/CopyTokenButton'
 import { PlaygroundDialog } from './components/PlaygroundDialog'
+import { McpSetupDialog } from './components/McpSetupDialog'
 import { DisconnectButton } from './components/DisconnectButton'
 import { connectionAbilities, connectionHealth, maskToken } from '@/lib/dashboard/connections'
 import { connectionOffer, findManifest, listManifests } from '@/lib/providers/core/manifests'
@@ -32,6 +33,8 @@ export default async function LinkedAccountsPage() {
   // account token is a live credential. Both are an owner's call.
   const mayDisconnect = canDestroy(me?.role)
   const mayCopyToken = canRevealAccountToken(me?.role)
+  // The agent connects to this deployment, so the snippets have to name it.
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').trim()
 
   const [accounts, clients] = await Promise.all([
     prisma.linkedAccount.findMany({
@@ -146,6 +149,13 @@ export default async function LinkedAccountsPage() {
                     baseUrl={manifest?.baseUrl ?? ''}
                     examples={manifest?.passthroughExamples ?? []}
                     docsUrl={manifest?.docsUrl}
+                  />
+                  <McpSetupDialog
+                    linkedAccountId={account.id}
+                    clientName={account.client.name}
+                    providerName={manifest?.name ?? account.provider}
+                    appUrl={appUrl}
+                    mayRevealToken={mayCopyToken}
                   />
                   {mayDisconnect && (
                     <DisconnectButton
