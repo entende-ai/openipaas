@@ -1,38 +1,24 @@
 "use server"
 
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
-import {
-  SESSION_COOKIE,
-  checkOperatorPassword,
-  isDashboardAuthConfigured,
-  issueSessionToken,
-} from '@/lib/auth-session'
+import { SESSION_COOKIE, checkOperatorPassword, isDashboardAuthConfigured } from '@/lib/auth-session'
+import { startSessionCookie, safeNext } from '@/lib/dashboard/session-cookie'
 import { PASSWORD_MIN_LENGTH, hashPassword, looksLikeEmail, normalizeEmail, verifyPassword } from '@/lib/password'
-
-const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60
+import { cookies } from 'next/headers'
 
 /**
  * Sign-in for the admin console.
  *
- * Accounts live in the database; DASHBOARD_PASSWORD is the operator secret that
- * authorizes creating the first account and resetting a forgotten password,
- * because a self-hosted deployment has no mail server to send links from.
+ * Accounts live in the database. DASHBOARD_PASSWORD is the operator secret that
+ * authorizes creating the first account and setting a password with no mail
+ * involved at all, which is the recovery an install with no mail provider still
+ * has. The emailed link lives in password-reset.ts.
  */
 
 async function startSession(userId: string, next: string): Promise<never> {
-  const store = await cookies()
-  store.set(SESSION_COOKIE, await issueSessionToken(userId), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  })
-
-  // Only same-origin paths, so the parameter cannot be used as an open redirect.
-  redirect(next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard/clients')
+  await startSessionCookie(userId)
+  redirect(safeNext(next))
 }
 
 function readNext(formData: FormData): string {
@@ -138,6 +124,12 @@ export async function resetPassword(formData: FormData) {
   await prisma.dashboardUser.update({
     where: { id: user.id },
     data: { passwordHash: await hashPassword(password), lastLoginAt: new Date() },
+  })
+
+  // Any link that was already in flight is now a way in with an old password.
+  await prisma.passwordResetToken.updateMany({
+    where: { userId: user.id, usedAt: null },
+    data: { usedAt: new Date() },
   })
 
   await startSession(user.id, readNext(formData))
