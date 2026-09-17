@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AddAccountForm } from './components/AddAccountForm'
 import { AccountActions } from './components/AccountActions'
 import { ChangePasswordForm } from './components/ChangePasswordForm'
+import { PageHeader } from '@/components/dashboard/PageHeader'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,13 +29,10 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
-        <p className="text-sm text-muted-foreground">
-          Everyone here signs in with their own email and password. Owners manage the team, revoke keys and disconnect
-          accounts; members do the day to day work.
-        </p>
-      </div>
+      <PageHeader
+        title="Team"
+        description="Everyone here signs in with their own email and password. Owners manage the team, revoke keys and disconnect accounts; members do the day to day work."
+      />
 
       <Card>
         <CardHeader>

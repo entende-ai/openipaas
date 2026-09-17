@@ -12,6 +12,7 @@ import { pickActiveCredential } from '@/lib/credentials'
 import { playgroundOperations } from '@/lib/dashboard/playground'
 import { currentUser } from '@/lib/auth-session'
 import { canDestroy, canRevealAccountToken } from '@/lib/dashboard/roles'
+import { PageHeader } from '@/components/dashboard/PageHeader'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -51,16 +52,13 @@ export default async function LinkedAccountsPage() {
   }))
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Connections</h2>
-          <p className="text-muted-foreground">
-            A client plus a provider account. The account token routes each request to the right one.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Connections"
+        description="A client plus a provider account. The account token routes each request to the right one."
+      >
         <ConnectErpDialog clients={clients} providers={providers} />
-      </div>
+      </PageHeader>
 
       {clients.length === 0 && (
         <Card>

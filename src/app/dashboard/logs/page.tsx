@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { listRecentRequests, requestStats } from '@/lib/request-log'
+import { PageHeader } from '@/components/dashboard/PageHeader'
 
 // Logs are written on every request, so this page must not be cached.
 export const dynamic = 'force-dynamic'
@@ -16,11 +17,8 @@ export default async function LogsPage() {
   const [logs, stats] = await Promise.all([listRecentRequests({ limit: 100 }), requestStats()])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">API logs</h2>
-        <p className="text-muted-foreground">Every unified API call, as it happened.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="API logs" description="Every unified API call, as it happened." />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

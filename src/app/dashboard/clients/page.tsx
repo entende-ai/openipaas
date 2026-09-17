@@ -8,6 +8,7 @@ import { GenerateKeyButton } from './components/GenerateKeyButton'
 import { RevokeKeyButton } from './components/RevokeKeyButton'
 import { currentUser } from '@/lib/auth-session'
 import { canDestroy } from '@/lib/dashboard/roles'
+import { PageHeader } from '@/components/dashboard/PageHeader'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -28,16 +29,13 @@ export default async function ClientsPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Clients &amp; keys</h2>
-          <p className="text-muted-foreground">
-            A client is whoever calls your unified API. Its key is the Authorization header they send.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Clients & keys"
+        description="A client is whoever calls your unified API. Its key is the Authorization header they send."
+      >
         <CreateClientDialog />
-      </div>
+      </PageHeader>
 
       {clients.length === 0 && (
         <Card>
