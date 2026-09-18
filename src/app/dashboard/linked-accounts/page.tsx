@@ -140,6 +140,11 @@ export default async function LinkedAccountsPage() {
                   {mayCopyToken && <CopyTokenButton linkedAccountId={account.id} />}
                 </div>
 
+                <p className="text-xs text-muted-foreground">
+                  Send it as the X-Account-Token header, alongside the API key for this client from Clients &amp; keys. The two
+                  together are what a call needs, and Connect an agent below puts both into a command for you.
+                </p>
+
                 <div className="flex flex-wrap gap-2">
                   <PlaygroundDialog
                     linkedAccountId={account.id}
