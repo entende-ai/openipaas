@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
   session: { id: 'user-1', email: 'owner@example.com', name: null, role: 'OWNER' },
   updates: [] as { id: string; data: Record<string, unknown> }[],
   revalidated: [] as string[],
+  keys: [] as Record<string, unknown>[],
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -34,7 +35,14 @@ vi.mock('@/lib/prisma', () => ({
         return client;
       },
     },
-    apiKey: { create: async () => ({}), update: async () => ({}), findUnique: async () => null },
+    apiKey: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        state.keys.push(data);
+        return data;
+      },
+      update: async () => ({}),
+      findUnique: async () => null,
+    },
   },
 }));
 
@@ -45,7 +53,7 @@ vi.mock('@/lib/auth-session', () => ({
   requireOwner: async () => state.session,
 }));
 
-const { createClient, renameClient } = await import('@/app/actions/client');
+const { createClient, renameClient, generateApiKey } = await import('@/app/actions/client');
 
 function form(name: string): FormData {
   const data = new FormData();
@@ -57,6 +65,7 @@ beforeEach(() => {
   state.clients = [{ id: 'client-1', name: 'Ladigroup' }];
   state.updates = [];
   state.revalidated = [];
+  state.keys = [];
 });
 
 describe('creating a client', () => {
@@ -106,5 +115,32 @@ describe('renaming a client', () => {
     expect(await renameClient('client-404', form('Whatever'))).toMatchObject({
       error: expect.stringContaining('no longer exists'),
     });
+  });
+});
+
+describe('issuing an api key', () => {
+  it('shows the key once and stores only a hash of it', async () => {
+    const result = await generateApiKey('client-1', 'AI agent');
+
+    expect(result.apiKey).toMatch(/^oip_/);
+    expect(state.keys).toHaveLength(1);
+    expect(JSON.stringify(state.keys[0])).not.toContain(result.apiKey);
+    expect(state.keys[0].keyHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  // Several keys per client is the point: revoke the agent without stopping the
+  // backend. The name is the only way to tell them apart afterwards.
+  it('adds a key rather than replacing the last one, and keeps the name', async () => {
+    await generateApiKey('client-1', 'backend');
+    await generateApiKey('client-1', '  AI agent  ');
+
+    expect(state.keys.map((key) => key.name)).toEqual(['backend', 'AI agent']);
+  });
+
+  it('accepts no name at all', async () => {
+    await generateApiKey('client-1');
+    await generateApiKey('client-1', '   ');
+
+    expect(state.keys.map((key) => key.name)).toEqual([null, null]);
   });
 });
