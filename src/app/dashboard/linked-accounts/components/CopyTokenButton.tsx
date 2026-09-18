@@ -47,7 +47,7 @@ export function CopyTokenButton({ linkedAccountId }: { linkedAccountId: string }
       size="sm"
       onClick={handleCopy}
       disabled={state === 'loading'}
-      title={state === 'denied' ? 'Only an owner can copy this token' : 'Copy the X-Account-Token'}
+      title={state === 'denied' ? 'Only an owner can copy this token' : 'Copy the connection token (X-Account-Token)'}
     >
       {state === 'loading' && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />}
       {state === 'copied' && <Check className="mr-1.5 h-3.5 w-3.5 text-green-500" />}

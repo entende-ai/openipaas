@@ -1,8 +1,8 @@
 /**
  * Naming the connections behind one MCP server.
  *
- * A server opened with an account token is one connection and its tools keep
- * their plain names. A server opened with only an API key is the client, which
+ * A server opened on one connection (by connection token or X-Provider) has its
+ * tools under their plain names. A server opened with only an API key is the client, which
  * may have several connections, and every tool then carries the connection it
  * belongs to: `rd_station_crm__list_contacts`.
  *
@@ -48,7 +48,36 @@ export function prefixesFor(connections: NamedConnection[]): string[] {
   });
 }
 
-/** What a person calls this connection when a screen or a guide names it. */
+/**
+ * What a person calls this connection when a screen or a guide names it.
+ *
+ * A connection is labelled with its provider's name by default, so a label that
+ * only repeats it adds nothing and reads as a mistake: "RD Station CRM (RD
+ * Station CRM)".
+ */
 export function connectionLabel(providerName: string, label: string | null): string {
-  return label ? `${providerName} (${label})` : providerName;
+  const extra = (label ?? '').trim();
+  if (!extra || extra.toLowerCase() === providerName.trim().toLowerCase()) return providerName;
+  return `${providerName} (${extra})`;
+}
+
+export interface AgentEligibility {
+  id: string;
+  providerSlug: string;
+  /** A known provider with a stored credential: what withClientAuth accepts. */
+  usable: boolean;
+}
+
+/**
+ * The prefix each of a client's connections gets on a client-scoped server.
+ *
+ * The dashboard shows these and the server uses them, so both have to be
+ * computed over the same set. A connection the server leaves out, one with no
+ * credential or an unknown provider, gets no entry here: counting it would make
+ * a lone account look like one of two and give it a prefix nobody can call.
+ */
+export function clientScopePrefixes(accounts: AgentEligibility[]): Map<string, string> {
+  const usable = accounts.filter((account) => account.usable);
+  const prefixes = prefixesFor(usable);
+  return new Map(usable.map((account, index) => [account.id, prefixes[index]]));
 }

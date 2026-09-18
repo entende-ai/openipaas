@@ -11,10 +11,10 @@
  */
 
 export const API_KEY_VARIABLE = 'OPENIPAAS_API_KEY';
-export const ACCOUNT_TOKEN_VARIABLE = 'OPENIPAAS_ACCOUNT_TOKEN';
+export const CONNECTION_TOKEN_VARIABLE = 'OPENIPAAS_CONNECTION_TOKEN';
 
 /** Shown in place of the token for anyone not allowed to see the real one. */
-export const TOKEN_PLACEHOLDER = 'paste-the-account-token';
+export const TOKEN_PLACEHOLDER = 'paste-the-connection-token';
 
 export interface McpSetup {
   appUrl: string;
@@ -61,7 +61,7 @@ export function claudeCodeCommand(setup: McpSetup): string {
   const name = mcpServerName(setup.clientName, setup.providerName);
   const endpoint = mcpEndpoint(setup.appUrl);
 
-  // Leaving the account token out is what widens the server to the whole
+  // Naming no connection is what widens the server to the whole
   // client. That is the only difference between the two commands.
   if (setup.scope === 'client') {
     return [
@@ -74,11 +74,11 @@ export function claudeCodeCommand(setup: McpSetup): string {
 
   return [
     `export ${API_KEY_VARIABLE}="the-key-you-copied-when-you-created-it"`,
-    `export ${ACCOUNT_TOKEN_VARIABLE}="${setup.accountToken ?? TOKEN_PLACEHOLDER}"`,
+    `export ${CONNECTION_TOKEN_VARIABLE}="${setup.accountToken ?? TOKEN_PLACEHOLDER}"`,
     '',
     `claude mcp add --transport http --scope user ${name} ${endpoint} \\`,
     `  --header "Authorization: Bearer $${API_KEY_VARIABLE}" \\`,
-    `  --header "X-Account-Token: $${ACCOUNT_TOKEN_VARIABLE}"`,
+    `  --header "X-Account-Token: $${CONNECTION_TOKEN_VARIABLE}"`,
   ].join('\n');
 }
 
@@ -100,7 +100,7 @@ export function mcpJsonSnippet(setup: McpSetup): string {
               ? { Authorization: `Bearer \${${API_KEY_VARIABLE}}` }
               : {
                   Authorization: `Bearer \${${API_KEY_VARIABLE}}`,
-                  'X-Account-Token': `\${${ACCOUNT_TOKEN_VARIABLE}}`,
+                  'X-Account-Token': `\${${CONNECTION_TOKEN_VARIABLE}}`,
                 },
         },
       },

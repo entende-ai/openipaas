@@ -51,24 +51,24 @@ describe('reading the configuration', () => {
       EMAIL_FROM: 'a@b.com',
       BREVO_API_KEY: 'key',
       RESEND_API_KEY: 'other',
-    } as NodeJS.ProcessEnv);
+    } as unknown as NodeJS.ProcessEnv);
 
     expect(config).toMatchObject({ provider: 'brevo', apiKey: 'key', problems: [], inferred: false });
   });
 
   it('infers the provider from the key that is present', () => {
     for (const [provider, variable] of Object.entries(PROVIDER_KEY_VARIABLES)) {
-      const config = readEmailConfig({ EMAIL_FROM: 'a@b.com', [variable]: 'key' } as NodeJS.ProcessEnv);
+      const config = readEmailConfig({ EMAIL_FROM: 'a@b.com', [variable]: 'key' } as unknown as NodeJS.ProcessEnv);
       expect(config).toMatchObject({ provider, apiKey: 'key', problems: [], inferred: true });
     }
   });
 
   it('infers smtp from either the url or the host', () => {
-    expect(readEmailConfig({ EMAIL_FROM: 'a@b.com', SMTP_URL: 'smtp://h:25' } as NodeJS.ProcessEnv)).toMatchObject({
+    expect(readEmailConfig({ EMAIL_FROM: 'a@b.com', SMTP_URL: 'smtp://h:25' } as unknown as NodeJS.ProcessEnv)).toMatchObject({
       provider: 'smtp',
       problems: [],
     });
-    expect(readEmailConfig({ EMAIL_FROM: 'a@b.com', SMTP_HOST: 'mail.h' } as NodeJS.ProcessEnv)).toMatchObject({
+    expect(readEmailConfig({ EMAIL_FROM: 'a@b.com', SMTP_HOST: 'mail.h' } as unknown as NodeJS.ProcessEnv)).toMatchObject({
       provider: 'smtp',
       problems: [],
     });
@@ -76,31 +76,31 @@ describe('reading the configuration', () => {
 
   // A fresh clone has no mail account and still has to run.
   it('falls back to the log with nothing configured', () => {
-    expect(readEmailConfig({} as NodeJS.ProcessEnv)).toMatchObject({ provider: 'log', problems: [], inferred: true });
-    expect(emailStatus({} as NodeJS.ProcessEnv).canSend).toBe(false);
+    expect(readEmailConfig({} as unknown as NodeJS.ProcessEnv)).toMatchObject({ provider: 'log', problems: [], inferred: true });
+    expect(emailStatus({} as unknown as NodeJS.ProcessEnv).canSend).toBe(false);
   });
 
   it('names the variable that is missing', () => {
-    expect(readEmailConfig({ EMAIL_PROVIDER: 'resend', EMAIL_FROM: 'a@b.com' } as NodeJS.ProcessEnv).problems).toEqual([
+    expect(readEmailConfig({ EMAIL_PROVIDER: 'resend', EMAIL_FROM: 'a@b.com' } as unknown as NodeJS.ProcessEnv).problems).toEqual([
       'RESEND_API_KEY is not set.',
     ]);
-    expect(readEmailConfig({ RESEND_API_KEY: 'key' } as NodeJS.ProcessEnv).problems).toEqual([
+    expect(readEmailConfig({ RESEND_API_KEY: 'key' } as unknown as NodeJS.ProcessEnv).problems).toEqual([
       'EMAIL_FROM is not set, so there is no address to send from.',
     ]);
-    expect(readEmailConfig({ EMAIL_PROVIDER: 'smtp', EMAIL_FROM: 'a@b.com' } as NodeJS.ProcessEnv).problems).toEqual([
+    expect(readEmailConfig({ EMAIL_PROVIDER: 'smtp', EMAIL_FROM: 'a@b.com' } as unknown as NodeJS.ProcessEnv).problems).toEqual([
       'Set SMTP_URL, or SMTP_HOST with SMTP_PORT.',
     ]);
   });
 
   it('refuses a provider it does not have, and says which it has', () => {
-    const config = readEmailConfig({ EMAIL_PROVIDER: 'mailchimp', EMAIL_FROM: 'a@b.com' } as NodeJS.ProcessEnv);
+    const config = readEmailConfig({ EMAIL_PROVIDER: 'mailchimp', EMAIL_FROM: 'a@b.com' } as unknown as NodeJS.ProcessEnv);
     expect(config.provider).toBe('log');
     expect(config.problems[0]).toContain('mailchimp');
     for (const known of EMAIL_PROVIDERS) expect(config.problems[0]).toContain(known);
   });
 
   it('reports a working provider as able to send, carrying no secret', () => {
-    const status = emailStatus({ RESEND_API_KEY: 'sk-secret', EMAIL_FROM: 'a@b.com' } as NodeJS.ProcessEnv);
+    const status = emailStatus({ RESEND_API_KEY: 'sk-secret', EMAIL_FROM: 'a@b.com' } as unknown as NodeJS.ProcessEnv);
     expect(status).toEqual({ provider: 'resend', from: 'a@b.com', canSend: true, problems: [], inferred: true });
     expect(JSON.stringify(status)).not.toContain('sk-secret');
   });

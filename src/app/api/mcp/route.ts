@@ -101,7 +101,9 @@ const clientScope = withClientAuth(async (_req: NextRequest, auth: ClientAuthCon
 });
 
 export async function POST(req: NextRequest, routeCtx: { params: Promise<Record<string, string>> }) {
-  return req.headers.get('X-Account-Token') ? connectionScope(req, routeCtx) : clientScope(req);
+  // Naming a connection, by token or by service, narrows the server to it.
+  const pinned = req.headers.get('X-Account-Token') || req.headers.get('X-Provider');
+  return pinned ? connectionScope(req, routeCtx) : clientScope(req);
 }
 
 /**

@@ -7,7 +7,7 @@ import {
   mcpServerName,
   TOKEN_PLACEHOLDER,
   API_KEY_VARIABLE,
-  ACCOUNT_TOKEN_VARIABLE,
+  CONNECTION_TOKEN_VARIABLE,
   type McpSetup,
 } from '@/lib/dashboard/mcp-setup';
 
@@ -56,7 +56,7 @@ describe('the claude code command', () => {
 
   it('sends the two headers the api checks, by their real names', () => {
     expect(command).toContain(`--header "Authorization: Bearer $${API_KEY_VARIABLE}"`);
-    expect(command).toContain(`--header "X-Account-Token: $${ACCOUNT_TOKEN_VARIABLE}"`);
+    expect(command).toContain(`--header "X-Account-Token: $${CONNECTION_TOKEN_VARIABLE}"`);
   });
 
   it('adds a remote http server, not a local one', () => {
@@ -86,7 +86,7 @@ describe('the committed file', () => {
     expect(server.url).toBe('https://app.openipaas.com/api/mcp');
     expect(server.headers).toEqual({
       Authorization: 'Bearer ${OPENIPAAS_API_KEY}',
-      'X-Account-Token': '${OPENIPAAS_ACCOUNT_TOKEN}',
+      'X-Account-Token': '${OPENIPAAS_CONNECTION_TOKEN}',
     });
   });
 
@@ -114,7 +114,7 @@ describe('a server for the whole client', () => {
   it('sends the key and no account token', () => {
     expect(command).toContain(`--header "Authorization: Bearer $${API_KEY_VARIABLE}"`);
     expect(command).not.toContain('X-Account-Token');
-    expect(command).not.toContain(ACCOUNT_TOKEN_VARIABLE);
+    expect(command).not.toContain(CONNECTION_TOKEN_VARIABLE);
   });
 
   it('is named after the client alone', () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { openApiSpec } from '@/lib/openapi';
+import { listManifests } from '@/lib/providers/core/manifests';
 
 /**
  * The guide is prose, and prose rots quietly.
@@ -14,7 +15,8 @@ const GUIDE = readFileSync('docs/INTEGRATION.md', 'utf8');
 const paths = Object.keys(openApiSpec.paths as Record<string, unknown>);
 
 function routesInGuide(): string[] {
-  const matches = GUIDE.matchAll(/\/api\/unified\/v1(\/[^\s"'?]*)/g);
+  // A route quoted in inline code ends at the backtick, not after it.
+  const matches = GUIDE.matchAll(/\/api\/unified\/v1(\/[^\s"'?`]*)/g);
   return [...new Set([...matches].map((m) => m[1]))];
 }
 
@@ -52,10 +54,24 @@ describe('integration guide', () => {
   it('does not invent error codes', () => {
     const schema = (openApiSpec.components as any).schemas.Error;
     const codes: string[] = schema.properties.code.enum;
-    const mentioned = [...GUIDE.matchAll(/`([A-Z]+_[A-Z_]+)`/g)].map((m) => m[1]);
+    // Service names share the SHOUTING_CASE of error codes and are documented on
+    // purpose, as what X-Provider takes. They are checked against the catalog
+    // instead, so a renamed provider still fails here.
+    const slugs = new Set(listManifests().map((manifest) => manifest.slug));
+    const mentioned = [...GUIDE.matchAll(/`([A-Z]+_[A-Z_]+)`/g)].map((m) => m[1]).filter((name) => !slugs.has(name));
 
     for (const code of new Set(mentioned)) {
       expect(codes, `${code} is documented but is not a real code`).toContain(code);
     }
+  });
+
+  // The service names the guide tells people to send must exist, or X-Provider
+  // answers 400 to someone following the guide word for word.
+  it('only names services that exist', () => {
+    const slugs = new Set(listManifests().map((manifest) => manifest.slug));
+    const named = [...GUIDE.matchAll(/X-Provider: ([A-Za-z_]+)/g)].map((m) => m[1].toUpperCase());
+
+    expect(named.length).toBeGreaterThan(0);
+    for (const slug of named) expect(slugs, `${slug} is not a provider`).toContain(slug);
   });
 });

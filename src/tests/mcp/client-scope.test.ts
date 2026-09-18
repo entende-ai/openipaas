@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { ProviderContext, ProviderManifest, UnifiedProvider } from '@/lib/providers/core/types';
 import { dispatch, type McpContext, type McpConnection } from '@/lib/mcp/server';
-import { prefixesFor, connectionLabel, PREFIX_SEPARATOR } from '@/lib/mcp/connections';
+import { prefixesFor, connectionLabel, clientScopePrefixes, PREFIX_SEPARATOR } from '@/lib/mcp/connections';
 import { GUIDE_URI, CAPABILITIES_URI, providerUri, readResource } from '@/lib/mcp/resources';
 
 /**
@@ -50,7 +50,7 @@ const CRM = manifestWith({ slug: 'RD_STATION_CRM', name: 'RD Station CRM', capab
 const ERP = manifestWith({
   slug: 'CONTA_AZUL',
   name: 'Conta Azul',
-  category: 'ERP',
+  category: 'ACCOUNTING',
   capabilities: { customers: ['list', 'get'] },
   passthrough: true,
 });
@@ -82,6 +82,26 @@ describe('naming the accounts', () => {
   it('names an account by its label when it has one', () => {
     expect(connectionLabel('RD Station CRM', 'LAD')).toBe('RD Station CRM (LAD)');
     expect(connectionLabel('RD Station CRM', null)).toBe('RD Station CRM');
+  });
+
+  // Every connection is labelled with its provider name by default, which used
+  // to print "RD Station CRM (RD Station CRM)" in the instructions an agent reads.
+  it('does not repeat a label that only restates the provider', () => {
+    expect(connectionLabel('RD Station CRM', 'RD Station CRM')).toBe('RD Station CRM');
+    expect(connectionLabel('RD Station CRM', ' rd station crm ')).toBe('RD Station CRM');
+    expect(connectionLabel('RD Station CRM', '   ')).toBe('RD Station CRM');
+  });
+
+  // The dashboard and the server must agree, so both skip what the server skips.
+  it('gives no prefix to a connection the server would leave out', () => {
+    const prefixes = clientScopePrefixes([
+      { id: 'aaaaaaaa-1', providerSlug: 'RD_STATION_CRM', usable: true },
+      { id: 'bbbbbbbb-1', providerSlug: 'RD_STATION_CRM', usable: false },
+    ]);
+
+    // One usable RD account is a lone account: no id fragment in its prefix.
+    expect(prefixes.get('aaaaaaaa-1')).toBe('rd_station_crm__');
+    expect(prefixes.has('bbbbbbbb-1')).toBe(false);
   });
 });
 

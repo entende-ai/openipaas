@@ -14,6 +14,8 @@ import { playgroundOperations } from '@/lib/dashboard/playground'
 import { currentUser } from '@/lib/auth-session'
 import { canDestroy, canRevealAccountToken } from '@/lib/dashboard/roles'
 import { PageHeader } from '@/components/dashboard/PageHeader'
+import { clientScopePrefixes } from '@/lib/mcp/connections'
+import { isKnownProvider } from '@/lib/providers/core/registry'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -30,7 +32,7 @@ const STATE_VARIANT = {
 export default async function LinkedAccountsPage() {
   const me = await currentUser()
   // Disconnecting means the end customer has to authorize the app again, and the
-  // account token is a live credential. Both are an owner's call.
+  // connection token is a live credential. Both are an owner's call.
   const mayDisconnect = canDestroy(me?.role)
   const mayCopyToken = canRevealAccountToken(me?.role)
   // The agent connects to this deployment, so the snippets have to name it.
@@ -43,6 +45,21 @@ export default async function LinkedAccountsPage() {
     }),
     prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ])
+
+  // The prefix an agent sees depends on the other connections of the same
+  // client, so it is computed per client, over the same set the server accepts.
+  const agentPrefix = new Map<string, string>()
+  const byClient = Map.groupBy(accounts, (account) => account.clientId)
+  for (const group of byClient.values()) {
+    const prefixes = clientScopePrefixes(
+      group.map((account) => ({
+        id: account.id,
+        providerSlug: account.provider,
+        usable: isKnownProvider(account.provider) && Boolean(pickActiveCredential(account.credentials)),
+      }))
+    )
+    for (const [id, prefix] of prefixes) agentPrefix.set(id, prefix)
+  }
 
   // The connect dialog renders itself from the manifests, so a new provider
   // shows up here with no UI change.
@@ -58,7 +75,7 @@ export default async function LinkedAccountsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Connections"
-        description="A client plus a provider account. The account token routes each request to the right one."
+        description="A client plus a provider account. The API key says which client; the service name, or the connection token when a client has two accounts on one service, says which system."
       >
         <ConnectErpDialog clients={clients} providers={providers} />
       </PageHeader>
@@ -132,18 +149,34 @@ export default async function LinkedAccountsPage() {
               <CardContent className="space-y-4">
                 <p className="text-xs text-muted-foreground">{health.detail}</p>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-muted-foreground">X-Account-Token</span>
-                  <code className="rounded bg-muted/60 px-2 py-1 font-mono text-xs">
-                    {maskToken(account.accountToken)}
-                  </code>
-                  {mayCopyToken && <CopyTokenButton linkedAccountId={account.id} />}
-                </div>
+                <dl className="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-[auto_1fr]">
+                  <dt className="text-muted-foreground">Service</dt>
+                  <dd>
+                    <code className="rounded bg-muted/60 px-2 py-1 font-mono">{account.provider}</code>
+                    <span className="ml-2 text-muted-foreground">sent as X-Provider</span>
+                  </dd>
 
-                <p className="text-xs text-muted-foreground">
-                  Send it as the X-Account-Token header, alongside the API key for this client from Clients &amp; keys. The two
-                  together are what a call needs, and Connect an agent below puts both into a command for you.
-                </p>
+                  <dt className="text-muted-foreground">Agent tools</dt>
+                  <dd>
+                    {agentPrefix.get(account.id) ? (
+                      <>
+                        <code className="rounded bg-muted/60 px-2 py-1 font-mono">{agentPrefix.get(account.id)}…</code>
+                        <span className="ml-2 text-muted-foreground">on the server for {account.client.name}</span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Not offered to agents until this connection has a credential.</span>
+                    )}
+                  </dd>
+
+                  <dt className="text-muted-foreground">Connection token</dt>
+                  <dd className="flex flex-wrap items-center gap-2">
+                    <code className="rounded bg-muted/60 px-2 py-1 font-mono">{maskToken(account.accountToken)}</code>
+                    {mayCopyToken && <CopyTokenButton linkedAccountId={account.id} />}
+                    <span className="text-muted-foreground">
+                      sent as X-Account-Token, only needed when {account.client.name} has two accounts on this service
+                    </span>
+                  </dd>
+                </dl>
 
                 <div className="flex flex-wrap gap-2">
                   <PlaygroundDialog

@@ -63,8 +63,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Which connection a tool name belongs to.
  *
- * Longest prefix first, so `rd_station_crm_a1b2c3__` is preferred over
- * `rd_station_crm__` when both exist.
+ * With the `__` separator no prefix can start another one (see prefixesFor), so
+ * at most one connection matches. Longest first is kept only so that a future
+ * naming scheme without that property fails towards the more specific account.
  */
 function connectionFor(ctx: McpContext, name: string): McpConnection | null {
   const candidates = ctx.connections
@@ -121,7 +122,7 @@ async function callTool(ctx: McpContext, params: Record<string, unknown> | undef
 
 function instructionsFor(ctx: McpContext): string {
   const shared = [
-    'Tools come from what these accounts actually support, so call tools/list before assuming one exists.',
+    `Tools come from what ${ctx.scope === 'client' ? 'these accounts actually support' : 'this account actually supports'}, so call tools/list before assuming one exists.`,
     'Lists are paged: pass the returned nextCursor back as cursor to continue.',
     `Read ${GUIDE_URI} before the first call: it is written for this connection and says what the answers mean.`,
   ].join(' ');

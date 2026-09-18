@@ -117,7 +117,7 @@ export function AddAccountForm() {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Owners manage the team, revoke keys, disconnect accounts and can copy account tokens.
+            Owners manage the team, revoke keys, disconnect accounts and can copy connection tokens.
           </p>
         </div>
       </div>

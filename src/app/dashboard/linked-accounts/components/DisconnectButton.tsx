@@ -38,7 +38,7 @@ export function DisconnectButton({ linkedAccountId, label }: { linkedAccountId: 
           <DialogHeader>
             <DialogTitle>Disconnect {label}?</DialogTitle>
             <DialogDescription>
-              The stored credential is deleted and every request using this account token starts failing. Connecting
+              The stored credential is deleted and every request aimed at this connection starts failing. Connecting
               again means going through the provider&apos;s consent screen once more.
             </DialogDescription>
           </DialogHeader>

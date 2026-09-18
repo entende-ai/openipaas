@@ -58,7 +58,7 @@ export function onboardingSteps(counts: {
     {
       id: 'call',
       title: 'Make a call',
-      description: 'Try it from the playground, then from your own code with the key and the account token.',
+      description: 'Try it from the playground, then from your own code with the key and the service name.',
       done: done.call,
       href: '/dashboard/linked-accounts',
       action: 'Open the playground',
