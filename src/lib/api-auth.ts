@@ -319,3 +319,167 @@ export function assertCapability(provider: UnifiedProvider, method: keyof Unifie
     });
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * Client scope
+ * ------------------------------------------------------------------ */
+
+export interface ClientConnection {
+  linkedAccount: LinkedAccount;
+  provider: UnifiedProvider;
+  credentials: ProviderContext;
+}
+
+export interface ClientAuthContext {
+  requestId: string;
+  client: Client;
+  /** Every connection of this client that is usable right now. */
+  connections: ClientConnection[];
+  body: any;
+}
+
+type ClientHandler = (req: NextRequest, auth: ClientAuthContext) => Promise<NextResponse> | NextResponse;
+
+/**
+ * The same authentication, scoped to the client rather than one connection.
+ *
+ * An API key already identifies a client, and already reaches any of that
+ * client's connections given the matching account token. This grants nothing
+ * new: it drops the second header and hands over every connection at once, for
+ * a caller that would otherwise need one endpoint per connected account.
+ *
+ * A connection with no usable credential is left out rather than reported. It
+ * is not an error for the caller, who did not ask for it by name; it is
+ * something for the dashboard to show the operator, which it does.
+ */
+export function withClientAuth(handler: ClientHandler) {
+  return async (req: NextRequest) => {
+    const requestId = crypto.randomUUID();
+    const startedAt = Date.now();
+    const url = new URL(req.url);
+
+    let clientId: string | null = null;
+
+    const finish = (response: NextResponse, errorCode?: string | null) => {
+      recordRequest({
+        requestId,
+        clientId,
+        linkedAccountId: null,
+        provider: null,
+        method: req.method,
+        path: url.pathname,
+        status: response.status,
+        latencyMs: Date.now() - startedAt,
+        errorCode: errorCode ?? null,
+      });
+      response.headers.set('X-Request-Id', requestId);
+      return response;
+    };
+
+    try {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return finish(
+          NextResponse.json(
+            { error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED', requestId },
+            { status: 401 }
+          ),
+          'UNAUTHORIZED'
+        );
+      }
+
+      const apiKeyRecord = await findApiKey(authHeader.slice('Bearer '.length).trim());
+
+      if (!apiKeyRecord) {
+        return finish(
+          NextResponse.json({ error: 'Invalid API Key', code: 'UNAUTHORIZED', requestId }, { status: 401 }),
+          'UNAUTHORIZED'
+        );
+      }
+      clientId = apiKeyRecord.clientId;
+
+      if (apiKeyRecord.revokedAt) {
+        return finish(
+          NextResponse.json({ error: 'This API key has been revoked', code: 'UNAUTHORIZED', requestId }, { status: 401 }),
+          'UNAUTHORIZED'
+        );
+      }
+      if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt.getTime() < Date.now()) {
+        return finish(
+          NextResponse.json({ error: 'This API key has expired', code: 'UNAUTHORIZED', requestId }, { status: 401 }),
+          'UNAUTHORIZED'
+        );
+      }
+
+      const verdict = await consume(`client:${apiKeyRecord.clientId}`, DEFAULT_LIMIT, DEFAULT_WINDOW_MS);
+      if (!verdict.allowed) {
+        return finish(
+          NextResponse.json(
+            { error: 'Rate limit exceeded', code: 'RATE_LIMITED', requestId },
+            {
+              status: 429,
+              headers: {
+                'Retry-After': String(verdict.retryAfterSeconds),
+                'X-RateLimit-Limit': String(verdict.limit),
+                'X-RateLimit-Remaining': '0',
+              },
+            }
+          ),
+          'RATE_LIMITED'
+        );
+      }
+
+      const client = await prisma.client.findUnique({ where: { id: apiKeyRecord.clientId } });
+      if (!client) {
+        return finish(
+          NextResponse.json({ error: 'Invalid API Key', code: 'UNAUTHORIZED', requestId }, { status: 401 }),
+          'UNAUTHORIZED'
+        );
+      }
+
+      const linkedAccounts = await prisma.linkedAccount.findMany({
+        where: { clientId: client.id },
+        include: { credentials: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      const connections: ClientConnection[] = [];
+      for (const linkedAccount of linkedAccounts) {
+        if (!isKnownProvider(linkedAccount.provider)) continue;
+
+        const credential = pickActiveCredential(linkedAccount.credentials);
+        if (!credential) continue;
+
+        connections.push({
+          linkedAccount,
+          provider: createProvider(linkedAccount.provider, { refreshCredential }),
+          credentials: toProviderContext(credential, linkedAccount.provider),
+        });
+      }
+
+      let body: any = null;
+      if (WRITE_METHODS.has(req.method)) {
+        try {
+          const text = await req.text();
+          body = text ? JSON.parse(text) : null;
+        } catch {
+          return finish(
+            NextResponse.json({ error: 'Invalid JSON body', code: 'INVALID_REQUEST', requestId }, { status: 400 }),
+            'INVALID_REQUEST'
+          );
+        }
+      }
+
+      const response = await handler(req, { requestId, client, connections, body });
+
+      prisma.apiKey
+        .update({ where: { id: apiKeyRecord.id }, data: { lastUsedAt: new Date() } })
+        .catch(() => {/* best effort */});
+
+      return finish(response);
+    } catch (error) {
+      const { response, code } = errorResponse(error, requestId);
+      return finish(response, code);
+    }
+  };
+}

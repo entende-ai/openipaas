@@ -23,9 +23,12 @@ import {
 const SETUP: McpSetup = {
   appUrl: 'https://app.openipaas.com',
   clientName: 'LadiGroup',
+  scope: 'connection',
   providerName: 'RD Station CRM',
   accountToken: 'tok-123',
 };
+
+const CLIENT_SETUP: McpSetup = { appUrl: 'https://app.openipaas.com', clientName: 'LadiGroup', scope: 'client' };
 
 describe('the server name', () => {
   it('carries the client and the provider, because both vary', () => {
@@ -100,5 +103,29 @@ describe('the check', () => {
 
     expect(check).toContain('https://app.openipaas.com/api/mcp');
     expect(JSON.parse(check.match(/-d '(.*)'/)![1])).toEqual({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+  });
+});
+
+describe('a server for the whole client', () => {
+  const command = claudeCodeCommand(CLIENT_SETUP);
+
+  // Leaving the account token out is what widens the scope, so its absence is
+  // the behaviour, not an omission.
+  it('sends the key and no account token', () => {
+    expect(command).toContain(`--header "Authorization: Bearer $${API_KEY_VARIABLE}"`);
+    expect(command).not.toContain('X-Account-Token');
+    expect(command).not.toContain(ACCOUNT_TOKEN_VARIABLE);
+  });
+
+  it('is named after the client alone', () => {
+    expect(mcpServerName('LadiGroup')).toBe('ladigroup');
+    expect(command).toContain('claude mcp add --transport http --scope user ladigroup ');
+  });
+
+  it('carries the same shape into the committed file and the check', () => {
+    const parsed = JSON.parse(mcpJsonSnippet(CLIENT_SETUP));
+
+    expect(parsed.mcpServers.ladigroup.headers).toEqual({ Authorization: 'Bearer ${OPENIPAAS_API_KEY}' });
+    expect(curlCheck(CLIENT_SETUP)).not.toContain('X-Account-Token');
   });
 });

@@ -35,8 +35,15 @@ function contextFor(manifest: ProviderManifest, methods: Record<string, unknown>
   return {
     requestId: 'req-1',
     clientName: 'Acme',
-    provider: { manifest, ...methods } as unknown as UnifiedProvider,
-    credentials: CREDENTIALS,
+    scope: 'connection',
+    connections: [
+      {
+        provider: { manifest, ...methods } as unknown as UnifiedProvider,
+        credentials: CREDENTIALS,
+        prefix: '',
+        label: manifest.name,
+      },
+    ],
   };
 }
 

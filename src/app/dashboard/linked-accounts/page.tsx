@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { ConnectErpDialog } from './components/ConnectErpDialog'
 import { CopyTokenButton } from './components/CopyTokenButton'
 import { PlaygroundDialog } from './components/PlaygroundDialog'
-import { McpSetupDialog } from './components/McpSetupDialog'
+import { McpSetupDialog } from '@/components/dashboard/McpSetupDialog'
 import { DisconnectButton } from './components/DisconnectButton'
 import { connectionAbilities, connectionHealth, maskToken } from '@/lib/dashboard/connections'
 import { connectionOffer, findManifest, listManifests } from '@/lib/providers/core/manifests'
@@ -156,6 +156,7 @@ export default async function LinkedAccountsPage() {
                     docsUrl={manifest?.docsUrl}
                   />
                   <McpSetupDialog
+                    scope="connection"
                     linkedAccountId={account.id}
                     clientName={account.client.name}
                     providerName={manifest?.name ?? account.provider}

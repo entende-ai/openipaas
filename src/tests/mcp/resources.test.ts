@@ -35,16 +35,22 @@ function contextFor(manifest: ProviderManifest): McpContext {
   return {
     requestId: 'req-1',
     clientName: 'LadiGroup',
-    provider: { manifest } as unknown as UnifiedProvider,
-    credentials: { accessToken: 'at' } as unknown as ProviderContext,
+    scope: 'connection',
+    connections: [
+      {
+        provider: { manifest } as unknown as UnifiedProvider,
+        credentials: { accessToken: 'at' } as unknown as ProviderContext,
+        prefix: '',
+        label: manifest.name,
+      },
+    ],
   };
 }
 
 const rpc = (method: string, params?: Record<string, unknown>) =>
   ({ jsonrpc: '2.0' as const, id: 1, method, params });
 
-const read = (uri: string, manifest: ProviderManifest) =>
-  readResource(uri, { manifest, clientName: 'LadiGroup' })!;
+const read = (uri: string, manifest: ProviderManifest) => readResource(uri, contextFor(manifest))!;
 
 describe('what the connection serves', () => {
   it('lists the guide, the matrix, the provider notes and the spec', async () => {
@@ -151,7 +157,7 @@ describe('the matrix', () => {
   });
 
   it('is json a model can branch on, not prose', () => {
-    const resource = resourcesFor(manifestWith({})).find((entry) => entry.uri === CAPABILITIES_URI)!;
+    const resource = resourcesFor(contextFor(manifestWith({}))).find((entry) => entry.uri === CAPABILITIES_URI)!;
     expect(resource.mimeType).toBe('application/json');
     expect(() => JSON.parse(read(CAPABILITIES_URI, manifestWith({})).text)).not.toThrow();
   });

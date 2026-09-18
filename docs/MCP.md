@@ -9,29 +9,55 @@ and the agent can list contacts and create deals; connect a Conta Azul account
 and the same endpoint offers customers, products and sales instead. A provider
 added to a fork gets the same treatment on the day it is added.
 
-## The endpoint
+## The endpoint, and the two scopes
 
 ```
 POST <your deployment>/api/mcp
 Authorization: Bearer <api key>
-X-Account-Token: <account token>
+X-Account-Token: <account token>      optional
 ```
 
-The same two headers as every other call to this platform. The account token
-picks the connection, so one agent connection sees one client's data and no
-other. Transport is Streamable HTTP with no session: every request carries what
-it needs, so any instance can serve it. A `GET` is answered with 405, because
-this server never initiates anything.
+The account token is what decides how much the server covers.
+
+**Without it, the server is the client.** Every account that client has
+connected is on one server entry, and every tool name starts with the account it
+belongs to: `rd_station_crm__list_contacts`, `conta_azul__list_customers`. This
+is usually the one you want. An agent working for a customer generally needs
+that customer's systems, not one of them.
+
+**With it, the server is that one connection**, and the tool names are plain:
+`list_contacts`. Narrower on purpose, for an agent that should reach one system
+and not the rest.
+
+Neither grants more than the API key already had: a key reaches any connection
+of its own client, and nothing belonging to another client. What the client
+scope removes is having to run one server entry per connected account.
+
+The account is part of the tool name rather than an argument because the tools
+of two providers are not interchangeable. A single `connection` parameter would
+offer a model `list_deals` on an accounting system, and it would find out by
+failing. Two accounts on the same provider are told apart by a fragment of the
+connection id, which does not move when an unrelated connection is removed.
+
+Transport is Streamable HTTP with no session: every request carries what it
+needs, so any instance can serve it. A `GET` is answered with 405, because this
+server never initiates anything.
 
 ## Setting it up
 
-The Connections page has **Connect an agent** on every connection, which hands
-you these filled in. By hand:
+**Connect an agent** hands you these filled in: on Clients and keys for the
+client scope, on Connections for a single connection. By hand:
 
 ```bash
 export OPENIPAAS_API_KEY="the key you copied when you created it"
-export OPENIPAAS_ACCOUNT_TOKEN="the account token"
 
+# Everything this client has connected
+claude mcp add --transport http --scope user ladigroup \
+  https://app.openipaas.com/api/mcp \
+  --header "Authorization: Bearer $OPENIPAAS_API_KEY"
+
+# Or one connection only
+export OPENIPAAS_ACCOUNT_TOKEN="the account token"
 claude mcp add --transport http --scope user ladigroup-rd-station-crm \
   https://app.openipaas.com/api/mcp \
   --header "Authorization: Bearer $OPENIPAAS_API_KEY" \
@@ -68,9 +94,10 @@ curl -s https://app.openipaas.com/api/mcp \
 
 ## What the agent gets
 
-**Tools**, one per resource and operation the connected account supports, named
+**Tools**, one per resource and operation each connected account supports, named
 `list_contacts`, `get_contact`, `create_deal` and so on, plus `passthrough`
-where the provider allows it. A capability the provider does not have is not a
+where the provider allows it, each name carrying its account in a client scope.
+A capability the provider does not have is not a
 tool, so there is nothing to explain and nothing to guess.
 
 **Resources**, which is the documentation:
@@ -79,7 +106,7 @@ tool, so there is nothing to explain and nothing to guess.
 | --- | --- |
 | `openipaas://guide` | Start here. Written for this account: what the connection is, how paging works, what a failed call means, when to reach for passthrough. |
 | `openipaas://capabilities` | The same matrix as JSON, pairing every operation with the tool that serves it. |
-| `openipaas://provider/<slug>` | What is specific to this provider: its own documentation, its rate limit, the paths worth calling raw. |
+| `openipaas://provider/<key>` | One per connected account: what is specific to that provider, its rate limit, the paths worth calling raw. |
 | `openipaas://openapi.json` | The OpenAPI document for the HTTP API behind the tools. |
 
 All four are generated at read time from the manifest of whatever provider is

@@ -15,34 +15,37 @@ import {
 } from '@/lib/dashboard/mcp-setup'
 
 /**
- * Points an AI agent at this connection.
+ * Points an AI agent at this client, or at one of its connections.
  *
- * The agent gets the tools this account supports and the documentation for
- * them, so the person setting it up only has to get two headers right. That is
- * exactly the kind of thing to hand over filled in rather than explain.
+ * A client scope is the usual one: one server entry, every account that client
+ * has connected, tool names carrying the account they belong to. A connection
+ * scope is narrower on purpose, for an agent that should reach one system and
+ * not the rest.
  *
- * The token is fetched when the dialog opens, never rendered into the page, and
- * only for an owner. For anyone else the commands are still correct, with a
- * placeholder where the token goes.
+ * The account token is fetched when the dialog opens, never rendered into the
+ * page, and only for an owner. For anyone else the commands are still correct,
+ * with a placeholder where the token goes. A client scope needs no token at all.
  */
 export function McpSetupDialog({
-  linkedAccountId,
+  scope,
   clientName,
-  providerName,
   appUrl,
-  mayRevealToken,
+  providerName,
+  linkedAccountId,
+  mayRevealToken = false,
 }: {
-  linkedAccountId: string
+  scope: 'client' | 'connection'
   clientName: string
-  providerName: string
   appUrl: string
-  mayRevealToken: boolean
+  providerName?: string
+  linkedAccountId?: string
+  mayRevealToken?: boolean
 }) {
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function onOpenChange(open: boolean) {
-    if (!open || token || !mayRevealToken) return
+    if (!open || token || scope === 'client' || !mayRevealToken || !linkedAccountId) return
 
     setLoading(true)
     const result = await revealAccountToken(linkedAccountId)
@@ -50,7 +53,8 @@ export function McpSetupDialog({
     if (result?.token) setToken(result.token)
   }
 
-  const setup: McpSetup = { appUrl, clientName, providerName, accountToken: token }
+  const setup: McpSetup = { appUrl, clientName, scope, providerName, accountToken: token }
+  const needsToken = scope === 'connection' && !mayRevealToken
 
   return (
     <Dialog onOpenChange={onOpenChange}>
@@ -63,13 +67,14 @@ export function McpSetupDialog({
         <DialogHeader>
           <DialogTitle>Connect an AI agent</DialogTitle>
           <DialogDescription>
-            An agent reaches {providerName} for {clientName} over MCP, with the tools this account supports and the
-            documentation for them. Nothing here is specific to this connection except the token.
+            {scope === 'client'
+              ? `One server for everything ${clientName} has connected. Each tool name carries the account it belongs to, so a call reaches that account and no other.`
+              : `An agent reaches ${providerName} for ${clientName} over MCP, with the tools this account supports and the documentation for them.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 overflow-y-auto">
-          {!mayRevealToken && (
+          {needsToken && (
             <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
               Only an owner can reveal the account token, so it is left as{' '}
               <code className="font-mono">{TOKEN_PLACEHOLDER}</code> below. Everything else is ready to run.
@@ -81,7 +86,7 @@ export function McpSetupDialog({
             hint={
               loading
                 ? 'Reading the account token…'
-                : 'Run this in a terminal. The agent then has this connection in every project.'
+                : 'Run this in a terminal. The agent then has it in every project.'
             }
             code={claudeCodeCommand(setup)}
           />
@@ -94,13 +99,13 @@ export function McpSetupDialog({
 
           <Snippet
             title="Check it answers first"
-            hint="Lists the tools this account offers. If this works, the agent will too."
+            hint="Lists the tools this server offers. If this works, the agent will too."
             code={curlCheck(setup)}
           />
 
           <p className="text-xs text-muted-foreground">
             The API key is the one you copied when you created it. It is stored as a hash, so nobody can show it to you
-            again: if it is lost, revoke it on the client and generate another. The agent will see this server as{' '}
+            again: if it is lost, issue another on Clients and keys. The agent will see this server as{' '}
             <code className="font-mono">{mcpServerName(clientName, providerName)}</code>.
           </p>
         </div>

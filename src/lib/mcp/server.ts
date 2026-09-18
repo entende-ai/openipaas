@@ -19,15 +19,28 @@ import { GUIDE_URI, readResource, resourcesFor } from './resources';
  * exercised against a fake provider: which tools an account offers, what a
  * failed call looks like to a model, what an unknown method answers. The route
  * is left with authentication and one JSON body.
+ *
+ * A server covers one connection or a whole client. Both are the same code
+ * path: a connection is a list of one, with an empty prefix.
  */
 
 export const SERVER_INFO = { name: 'openipaas', title: 'Open IpaaS', version: '1.0.0' };
 
+export interface McpConnection {
+  provider: UnifiedProvider;
+  credentials: ProviderContext;
+  /** Empty when this connection is the whole server, else `slug__`. */
+  prefix: string;
+  /** How the guide and the tool descriptions name it. */
+  label: string;
+}
+
 export interface McpContext {
   requestId: string;
   clientName: string;
-  provider: UnifiedProvider;
-  credentials: ProviderContext;
+  /** 'connection' keeps the plain tool names an existing agent already knows. */
+  scope: 'connection' | 'client';
+  connections: McpConnection[];
 }
 
 /** A tool failed. That is a result the model can read, not a protocol error. */
@@ -47,6 +60,20 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Which connection a tool name belongs to.
+ *
+ * Longest prefix first, so `rd_station_crm_a1b2c3__` is preferred over
+ * `rd_station_crm__` when both exist.
+ */
+function connectionFor(ctx: McpContext, name: string): McpConnection | null {
+  const candidates = ctx.connections
+    .filter((connection) => name.startsWith(connection.prefix))
+    .sort((a, b) => b.prefix.length - a.prefix.length);
+
+  return candidates[0] ?? null;
+}
+
 async function callTool(ctx: McpContext, params: Record<string, unknown> | undefined) {
   const name = params?.name;
   const args = (params?.arguments ?? {}) as Record<string, unknown>;
@@ -55,27 +82,29 @@ async function callTool(ctx: McpContext, params: Record<string, unknown> | undef
     return { error: { code: JSONRPC_ERRORS.INVALID_PARAMS, message: 'tools/call requires a tool name' } };
   }
 
-  const manifest = ctx.provider.manifest;
-  const binding = bindingFor(manifest, name);
-  if (!binding) {
+  const connection = connectionFor(ctx, name);
+  const binding = connection ? bindingFor(connection.provider.manifest, name, connection.prefix) : null;
+
+  if (!connection || !binding) {
     // Unknown to this account, which for a capability-derived tool list is the
     // same thing as unknown to this server.
+    const scope = ctx.scope === 'client' ? ctx.clientName : (connection?.label ?? ctx.connections[0]?.label ?? 'this account');
     return {
       error: {
         code: JSONRPC_ERRORS.INVALID_PARAMS,
-        message: `${manifest.name} has no tool named "${name}". Call tools/list to see what this account offers.`,
+        message: `${scope} has no tool named "${name}". Call tools/list to see what this connection offers.`,
       },
     };
   }
 
-  const method = (ctx.provider as unknown as Record<string, unknown>)[binding.method];
+  const method = (connection.provider as unknown as Record<string, unknown>)[binding.method];
   if (typeof method !== 'function') {
-    return { payload: toolFailure(`${manifest.name} declares ${name} but does not implement it.`) };
+    return { payload: toolFailure(`${connection.label} declares ${name} but does not implement it.`) };
   }
 
   try {
-    const payload = await (method as (...a: unknown[]) => Promise<unknown>).apply(ctx.provider, [
-      ctx.credentials,
+    const payload = await (method as (...a: unknown[]) => Promise<unknown>).apply(connection.provider, [
+      connection.credentials,
       ...callArgs(binding, args),
     ]);
     return { payload: toolSuccess(payload) };
@@ -90,6 +119,27 @@ async function callTool(ctx: McpContext, params: Record<string, unknown> | undef
   }
 }
 
+function instructionsFor(ctx: McpContext): string {
+  const shared = [
+    'Tools come from what these accounts actually support, so call tools/list before assuming one exists.',
+    'Lists are paged: pass the returned nextCursor back as cursor to continue.',
+    `Read ${GUIDE_URI} before the first call: it is written for this connection and says what the answers mean.`,
+  ].join(' ');
+
+  if (ctx.scope === 'client') {
+    const names = ctx.connections.map((connection) => connection.label).join(', ');
+    return (
+      `Connected to Open IpaaS on behalf of ${ctx.clientName}, covering ${ctx.connections.length} ` +
+      `${ctx.connections.length === 1 ? 'account' : 'accounts'}: ${names || 'none yet'}. ` +
+      'Each tool name starts with the account it belongs to, so a tool reaches that account and no other. ' +
+      shared
+    );
+  }
+
+  const only = ctx.connections[0];
+  return `Connected to ${only?.label ?? 'a provider'} through Open IpaaS, on behalf of ${ctx.clientName}. ` + shared;
+}
+
 export async function dispatch(message: JsonRpcRequest, ctx: McpContext): Promise<JsonRpcResponse> {
   switch (message.method) {
     case 'initialize':
@@ -97,21 +147,26 @@ export async function dispatch(message: JsonRpcRequest, ctx: McpContext): Promis
         protocolVersion: negotiateVersion(message.params?.protocolVersion),
         capabilities: { tools: { listChanged: false }, resources: { listChanged: false, subscribe: false } },
         serverInfo: SERVER_INFO,
-        instructions:
-          `Connected to ${ctx.provider.manifest.name} through Open IpaaS, on behalf of ${ctx.clientName}. ` +
-          'Tools come from what this account actually supports, so call tools/list before assuming one exists. ' +
-          'Lists are paged: pass the returned nextCursor back as cursor to continue. ' +
-          `Read ${GUIDE_URI} before the first call: it is written for this account and says what the answers mean.`,
+        instructions: instructionsFor(ctx),
       });
 
     case 'ping':
       return result(message.id, {});
 
     case 'tools/list':
-      return result(message.id, { tools: toolsFor(ctx.provider.manifest) });
+      return result(message.id, {
+        tools: ctx.connections.flatMap((connection) => toolsFor(connection.provider.manifest, connection.prefix)),
+      });
+
+    case 'tools/call': {
+      const outcome = await callTool(ctx, message.params);
+      return outcome.error
+        ? failure(message.id, outcome.error.code, outcome.error.message)
+        : result(message.id, outcome.payload);
+    }
 
     case 'resources/list':
-      return result(message.id, { resources: resourcesFor(ctx.provider.manifest) });
+      return result(message.id, { resources: resourcesFor(ctx) });
 
     // Templates exist in the protocol and this server has none: every resource
     // it serves has a fixed uri. Answering an empty list beats a client
@@ -126,10 +181,7 @@ export async function dispatch(message: JsonRpcRequest, ctx: McpContext): Promis
         return failure(message.id, JSONRPC_ERRORS.INVALID_PARAMS, 'resources/read requires a uri');
       }
 
-      const contents = readResource(uri, {
-        manifest: ctx.provider.manifest,
-        clientName: ctx.clientName,
-      });
+      const contents = readResource(uri, ctx);
 
       if (!contents) {
         return failure(
@@ -140,13 +192,6 @@ export async function dispatch(message: JsonRpcRequest, ctx: McpContext): Promis
       }
 
       return result(message.id, { contents: [{ uri, ...contents }] });
-    }
-
-    case 'tools/call': {
-      const outcome = await callTool(ctx, message.params);
-      return outcome.error
-        ? failure(message.id, outcome.error.code, outcome.error.message)
-        : result(message.id, outcome.payload);
     }
 
     default:

@@ -192,8 +192,16 @@ function describe(manifest: ProviderManifest, resource: ResourceName, operation:
 const DESTRUCTIVE: Operation[] = ['delete', 'bulkDelete'];
 const READ_ONLY: Operation[] = ['list', 'get', 'search', 'pdf'];
 
-/** The tools a connected account exposes, derived from its manifest. */
-export function toolsFor(manifest: ProviderManifest): McpTool[] {
+/**
+ * The tools a connected account exposes, derived from its manifest.
+ *
+ * The prefix is empty when the connection is the whole scope, and names the
+ * connection when several share one server. It is part of the name rather than
+ * an argument so that every tool offered is a tool that works: two providers
+ * have different resources, and one `connection` parameter would let a model
+ * ask Conta Azul for a deal.
+ */
+export function toolsFor(manifest: ProviderManifest, prefix = ''): McpTool[] {
   const tools: McpTool[] = [];
 
   for (const [resource, operations] of Object.entries(manifest.capabilities)) {
@@ -203,7 +211,7 @@ export function toolsFor(manifest: ProviderManifest): McpTool[] {
       if (!methodFor(resource as ResourceName, operation)) continue;
 
       tools.push({
-        name: toolName(resource as ResourceName, operation),
+        name: `${prefix}${toolName(resource as ResourceName, operation)}`,
         title: `${operation[0].toUpperCase() + operation.slice(1)} ${resource}`,
         description: describe(manifest, resource as ResourceName, operation),
         inputSchema: schemaFor(resource as ResourceName, operation),
@@ -217,7 +225,7 @@ export function toolsFor(manifest: ProviderManifest): McpTool[] {
 
   if (manifest.passthrough) {
     tools.push({
-      name: 'passthrough',
+      name: `${prefix}passthrough`,
       title: 'Raw provider request',
       description:
         `Call ${manifest.name}'s own API directly, for anything the unified tools do not cover. ` +
@@ -254,7 +262,10 @@ function stringifyQuery(value: unknown): Record<string, string> | undefined {
 }
 
 /** Resolves a tool name back to the provider method it calls. */
-export function bindingFor(manifest: ProviderManifest, name: string): ToolBinding | null {
+export function bindingFor(manifest: ProviderManifest, fullName: string, prefix = ''): ToolBinding | null {
+  if (prefix && !fullName.startsWith(prefix)) return null;
+  const name = prefix ? fullName.slice(prefix.length) : fullName;
+
   if (name === 'passthrough') {
     return manifest.passthrough ? { kind: 'passthrough', method: 'passthrough' } : null;
   }
