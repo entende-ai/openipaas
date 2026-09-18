@@ -254,7 +254,7 @@ describe('an owner sending a link', () => {
 
   it('hands the link over when the server cannot send it', async () => {
     state.delivered = false;
-    const result = await sendResetLinkTo('u-1');
+    const result = (await sendResetLinkTo('u-1')) as { message: string; link?: string };
 
     expect(result.link).toContain('https://app.openipaas.com/reset/');
     expect(result.message).toContain('link');

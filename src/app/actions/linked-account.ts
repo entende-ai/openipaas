@@ -85,7 +85,7 @@ export async function deleteLinkedAccount(id: string) {
 }
 
 /**
- * Hands the account token to the screen, on request.
+ * Hands the connection token to the screen, on request.
  *
  * It is a live credential, so it is fetched when someone asks rather than
  * rendered into a page anyone with a session can open.

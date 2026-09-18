@@ -11,10 +11,36 @@ import { currentUser } from '@/lib/auth-session'
 import { canDestroy } from '@/lib/dashboard/roles'
 import { PageHeader } from '@/components/dashboard/PageHeader'
 import { McpSetupDialog } from '@/components/dashboard/McpSetupDialog'
+import { clientScopePrefixes, connectionLabel } from '@/lib/mcp/connections'
+import { isKnownProvider } from '@/lib/providers/core/registry'
+import { findManifest } from '@/lib/providers/core/manifests'
+import { pickActiveCredential } from '@/lib/credentials'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
 export const dynamic = 'force-dynamic'
+
+/**
+ * What an agent on this client will see, computed the way the server computes
+ * it, so the table in the dialog and the tool list cannot disagree.
+ */
+function agentAccounts(
+  linkedAccounts: { id: string; provider: string; label: string | null; credentials: { createdAt: Date }[] }[]
+) {
+  const prefixes = clientScopePrefixes(
+    linkedAccounts.map((account) => ({
+      id: account.id,
+      providerSlug: account.provider,
+      usable: isKnownProvider(account.provider) && Boolean(pickActiveCredential(account.credentials)),
+    }))
+  )
+
+  return linkedAccounts.map((account) => ({
+    label: connectionLabel(findManifest(account.provider)?.name ?? account.provider, account.label),
+    service: account.provider,
+    prefix: prefixes.get(account.id) ?? null,
+  }))
+}
 
 export default async function ClientsPage() {
   const me = await currentUser()
@@ -28,6 +54,10 @@ export default async function ClientsPage() {
     include: {
       apiKeys: { orderBy: { createdAt: 'desc' } },
       _count: { select: { linkedAccounts: true } },
+      linkedAccounts: {
+        select: { id: true, provider: true, label: true, credentials: { select: { createdAt: true } } },
+        orderBy: { createdAt: 'asc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -77,7 +107,12 @@ export default async function ClientsPage() {
                     </Button>
                   )}
                   {client._count.linkedAccounts > 0 && (
-                    <McpSetupDialog scope="client" clientName={client.name} appUrl={appUrl} />
+                    <McpSetupDialog
+                      scope="client"
+                      clientName={client.name}
+                      appUrl={appUrl}
+                      accounts={agentAccounts(client.linkedAccounts)}
+                    />
                   )}
                   <GenerateKeyButton clientId={client.id} />
                 </div>

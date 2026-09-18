@@ -22,7 +22,7 @@ import {
  * scope is narrower on purpose, for an agent that should reach one system and
  * not the rest.
  *
- * The account token is fetched when the dialog opens, never rendered into the
+ * The connection token is fetched when the dialog opens, never rendered into the
  * page, and only for an owner. For anyone else the commands are still correct,
  * with a placeholder where the token goes. A client scope needs no token at all.
  */
@@ -33,6 +33,7 @@ export function McpSetupDialog({
   providerName,
   linkedAccountId,
   mayRevealToken = false,
+  accounts = [],
 }: {
   scope: 'client' | 'connection'
   clientName: string
@@ -40,6 +41,8 @@ export function McpSetupDialog({
   providerName?: string
   linkedAccountId?: string
   mayRevealToken?: boolean
+  /** For a client scope: every connection, and the prefix its tools will carry. */
+  accounts?: { label: string; service: string; prefix: string | null }[]
 }) {
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -74,9 +77,11 @@ export function McpSetupDialog({
         </DialogHeader>
 
         <div className="space-y-5 overflow-y-auto">
+          {scope === 'client' && accounts.length > 0 && <AgentAccounts accounts={accounts} />}
+
           {needsToken && (
             <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-              Only an owner can reveal the account token, so it is left as{' '}
+              Only an owner can reveal the connection token, so it is left as{' '}
               <code className="font-mono">{TOKEN_PLACEHOLDER}</code> below. Everything else is ready to run.
             </p>
           )}
@@ -85,7 +90,7 @@ export function McpSetupDialog({
             title="Claude Code"
             hint={
               loading
-                ? 'Reading the account token…'
+                ? 'Reading the connection token…'
                 : 'Run this in a terminal. The agent then has it in every project.'
             }
             code={claudeCodeCommand(setup)}
@@ -139,6 +144,47 @@ function Snippet({ title, hint, code }: { title: string; hint: string; code: str
       <pre className="overflow-x-auto rounded-md bg-muted/60 p-3 text-xs">
         <code className="font-mono">{code}</code>
       </pre>
+    </div>
+  )
+}
+
+/**
+ * What the agent will see, before anyone runs the command.
+ *
+ * The tool names are the service name plus the operation, and that rule is
+ * written nowhere a person naturally looks. Showing the prefix next to each
+ * account is the documentation.
+ */
+function AgentAccounts({ accounts }: { accounts: { label: string; service: string; prefix: string | null }[] }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">What the agent will see</p>
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40 text-left text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Account</th>
+              <th className="px-3 py-2 font-medium">Service</th>
+              <th className="px-3 py-2 font-medium">Tools start with</th>
+            </tr>
+          </thead>
+          <tbody>
+            {accounts.map((account) => (
+              <tr key={`${account.service}-${account.prefix ?? account.label}`} className="border-t border-border">
+                <td className="px-3 py-2">{account.label}</td>
+                <td className="px-3 py-2 font-mono">{account.service}</td>
+                <td className="px-3 py-2 font-mono">
+                  {account.prefix ?? <span className="font-sans text-muted-foreground">left out, no credential</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        For example <code className="font-mono">{accounts.find((a) => a.prefix)?.prefix ?? 'service__'}list_contacts</code>.
+        The service name is also what the REST API takes as X-Provider.
+      </p>
     </div>
   )
 }

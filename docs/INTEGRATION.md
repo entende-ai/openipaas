@@ -6,6 +6,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [1. Create a client](#1-create-a-client)
 - [2. Issue an API key](#2-issue-an-api-key)
 - [3. Connect an account](#3-connect-an-account)
+- [Service names](#service-names)
 - [4. Make the first call](#4-make-the-first-call)
 - [Paging through a list](#paging-through-a-list)
 - [Writing](#writing)
@@ -23,11 +24,16 @@ Four nouns, and they only make sense together:
 | | What it is | Where it lives |
 |---|---|---|
 | **Client** | Whoever consumes your unified API: a customer, an internal app, a partner. | Dashboard, Clients |
-| **API key** | Identifies the client. Sent as `Authorization: Bearer ...`. | Issued per client, shown once |
-| **Linked account** | One provider account (an RD Station CRM account, a Conta Azul account) that a client is allowed to reach. | Dashboard, Linked accounts |
-| **Account token** | Selects which linked account a call acts on. Sent as `X-Account-Token: ...`. | Shown on the linked account |
+| **API key** | The client's credential. Sent as `Authorization: Bearer ...`. A client can hold several, one per caller. | Issued per client, shown once |
+| **Connection** | One provider account (an RD Station CRM account, a Conta Azul account) that a client is allowed to reach. | Dashboard, Connections |
+| **Connection token** | Pins one exact connection. Sent as `X-Account-Token: ...`, a header name kept for compatibility. | Shown on the connection |
 
-The key says who is calling. The account token says whose data. Both are required on every call, which is what lets one integration serve many end customers without changing a line of code.
+**The key is the client, the service picks the system.** A key belongs to exactly one client and reaches that client's connections and nothing else. Each call then says which connection it means, in one of two ways:
+
+- `X-Provider: RD_STATION_CRM`, the name of the service. Readable, and all you need while the client has one account on that service.
+- `X-Account-Token: ...`, the connection token. Needed when a client has two accounts on the same service, where `X-Provider` answers `409 AMBIGUOUS_CONNECTION` rather than guess. It wins when both are sent.
+
+Either way, one integration serves many end customers without changing a line of code: a different key is a different client.
 
 ## 1. Create a client
 
@@ -45,18 +51,22 @@ Keys look like `oip_live_...`.
 
 ## 3. Connect an account
 
-Dashboard, **Linked accounts**, **Connect**. Pick the provider and the client, then finish the provider's own login.
+Dashboard, **Connections**, **Connect**. Pick the provider and the client, then finish the provider's own login.
 
 For OAuth providers such as RD Station CRM, the browser goes to the provider, you approve, and the callback returns with the connection stored. Access and refresh tokens are encrypted at rest; refreshes happen automatically and, for providers that rotate refresh tokens on use, are serialized per credential so two concurrent calls cannot invalidate each other.
 
-The linked account shows an **account token**. That is the `X-Account-Token` value for this account.
+The connection shows its **service name** (`RD_STATION_CRM`), which is what `X-Provider` takes, and its **connection token**, which is the `X-Account-Token` value when you need to pin this exact account.
+
+## Service names
+
+`GET /api/unified/v1/providers` lists every service this deployment knows, with the `slug` that `X-Provider` expects. It is public, so it needs no key at all. Matching is case-insensitive, so `rd_station_crm` works as well.
 
 ## 4. Make the first call
 
 ```bash
 curl https://app.openipaas.com/api/unified/v1/contacts \
   -H "Authorization: Bearer oip_live_..." \
-  -H "X-Account-Token: 0f5a..."
+  -H "X-Provider: RD_STATION_CRM"
 ```
 
 ```json
@@ -81,9 +91,9 @@ curl https://app.openipaas.com/api/unified/v1/contacts \
 }
 ```
 
-The same shape comes back whichever provider is behind the account. Swapping the account token for a different provider's account does not change your code.
+The same shape comes back whichever provider is behind the account. Pointing `X-Provider` at another service, or the key at another client, does not change your code.
 
-There is a playground in the dashboard on each linked account, which sends exactly this request with the account's own credentials. Use it to confirm a connection before writing any code.
+There is a playground in the dashboard on each connection, which sends exactly this request with that connection's own credentials. Use it to confirm a connection before writing any code.
 
 ## Paging through a list
 
@@ -105,7 +115,7 @@ Loop while `hasMore` is true, passing `nextCursor` back as `cursor`. Never build
 ```bash
 curl -X POST https://app.openipaas.com/api/unified/v1/companies \
   -H "Authorization: Bearer oip_live_..." \
-  -H "X-Account-Token: 0f5a..." \
+  -H "X-Provider: RD_STATION_CRM" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 4f0c1d2e-order-8821" \
   -d '{"name": "Padaria Sao Jorge", "website": "https://padariasaojorge.com.br"}'
@@ -122,7 +132,7 @@ Most sync code does not know whether the contact exists. The honest answer used 
 ```bash
 curl -X POST https://app.openipaas.com/api/unified/v1/contacts/upsert \
   -H "Authorization: Bearer oip_live_..." \
-  -H "X-Account-Token: 0f5a..." \
+  -H "X-Provider: RD_STATION_CRM" \
   -H "Content-Type: application/json" \
   -d '{"field": "email", "value": "ana@exemplo.com.br", "data": {"name": "Ana Ribeiro", "title": "CEO"}}'
 ```
@@ -141,7 +151,7 @@ To look without writing:
 
 ```bash
 curl "https://app.openipaas.com/api/unified/v1/contacts/search?field=email&value=ana@exemplo.com.br" \
-  -H "Authorization: Bearer oip_live_..." -H "X-Account-Token: 0f5a..."
+  -H "Authorization: Bearer oip_live_..." -H "X-Provider: RD_STATION_CRM"
 ```
 
 ## Knowing what a provider can do
@@ -163,7 +173,8 @@ Every error carries a stable `code` and a `requestId`, also returned in the `X-R
 
 | Code | Meaning | What to do |
 |---|---|---|
-| `UNAUTHORIZED` | Bad or revoked key, or an account token that does not belong to the client | Check both headers |
+| `UNAUTHORIZED` | Bad or revoked key, or a connection token that does not belong to the client | Check both headers |
+| `AMBIGUOUS_CONNECTION` | `X-Provider` named a service the client has more than one account on | Send `X-Account-Token` to pin one |
 | `INVALID_REQUEST` | The body or parameters did not validate | Read `error`, fix the call |
 | `NOT_FOUND` | No such record on the provider | |
 | `NOT_SUPPORTED` | The provider lacks this operation | Check the capability matrix, branch in your code |
@@ -181,7 +192,7 @@ The unified model will never cover every field of every provider. Anything it mi
 ```bash
 curl "https://app.openipaas.com/api/unified/v1/passthrough/contacts?page[size]=5" \
   -H "Authorization: Bearer oip_live_..." \
-  -H "X-Account-Token: 0f5a..."
+  -H "X-Provider: RD_STATION_CRM"
 ```
 
 The path after `/passthrough/` is appended to the provider's base URL and the raw provider response comes back untouched. That response is provider-shaped: it changes when you point the same code at a different provider. Use passthrough for the gaps, not as the default.
@@ -191,10 +202,11 @@ The path after `/passthrough/` is appended to the provider's base URL and the ra
 The same deployment is an MCP server at `/api/mcp`, so a model can use a connected account directly instead of you writing a client for it.
 
 ```bash
-claude mcp add --transport http openipaas https://app.openipaas.com/api/mcp \
-  --header "Authorization: Bearer oip_live_..." \
-  --header "X-Account-Token: 0f5a..."
+claude mcp add --transport http ladigroup https://app.openipaas.com/api/mcp \
+  --header "Authorization: Bearer oip_live_..."
 ```
+
+One entry per client: the key decides whose data it is, and the agent sees every system that client has connected.
 
 Any MCP client that speaks Streamable HTTP and can send headers works the same way.
 
@@ -207,7 +219,7 @@ Conventions worth knowing when you read a transcript:
 - **A failed call comes back as a readable result**, not a transport error, so the model can correct itself and try again. Provider detail stays in the logs; the model sees the code, the safe message and a request id.
 - **Read and destructive tools are annotated**, so a client that asks for confirmation before acting knows which is which.
 
-One account token means one account. A model connected this way can reach exactly what that token can reach, and nothing else.
+Sent with only the key, the server covers every connection of that client and each tool name starts with its service, as in `rd_station_crm__list_contacts`. Adding `X-Provider` or `X-Account-Token` narrows it to that one connection with plain tool names. Either way a key reaches its own client and nothing else. `docs/MCP.md` has the details.
 
 ## Provider notes
 

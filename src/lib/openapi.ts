@@ -57,7 +57,7 @@ const ERROR_SCHEMA = {
       enum: [
         'UNAUTHORIZED', 'INVALID_REQUEST', 'NOT_FOUND', 'NOT_SUPPORTED',
         'RATE_LIMITED', 'TOKEN_EXPIRED', 'UPSTREAM_ERROR', 'UPSTREAM_TIMEOUT',
-        'CONFIG_ERROR', 'INTERNAL_ERROR',
+        'CONFIG_ERROR', 'INTERNAL_ERROR', 'AMBIGUOUS_CONNECTION',
       ],
     },
     requestId: { type: 'string', description: 'Echoed in the X-Request-Id header. Quote it in support requests.' },
@@ -202,9 +202,13 @@ export const openApiSpec = {
       'walks through client, key, connection and first call. This page is the field by field reference.',
       '',
       '## Authentication',
-      'Every request needs two headers:',
-      '- `Authorization: Bearer <api_key>`, identifies your account.',
-      '- `X-Account-Token: <token>`, selects which connected end-customer account to act on.',
+      'The API key is the client: every key belongs to exactly one, and reaches the connections of that client and',
+      'nothing else. Each request then picks one of those connections, by service or by connection token:',
+      '- `Authorization: Bearer <api_key>`, always.',
+      '- `X-Provider: <SERVICE>`, for example `RD_STATION_CRM`. Readable, and enough while the client has one',
+      '  account on that service. The service names are listed by `GET /providers`.',
+      '- `X-Account-Token: <connection token>`, pins one exact connection. Needed when a client has two accounts',
+      '  on the same service, where `X-Provider` answers `409 AMBIGUOUS_CONNECTION`. Wins when both are sent.',
       '',
       '## Pagination',
       'Responses carry `hasMore` and an opaque `nextCursor`. Pass the cursor back as `?cursor=`.',
@@ -235,11 +239,26 @@ export const openApiSpec = {
     { name: 'CRM', description: 'Contacts, companies, deals and the funnel they move through.' },
     { name: 'Platform', description: 'Catalog and raw provider access.' },
   ],
-  security: [{ ApiKeyAuth: [], AccountToken: [] }],
+  // Either way of picking the connection satisfies a request; the key is always required.
+  security: [
+    { ApiKeyAuth: [], Provider: [] },
+    { ApiKeyAuth: [], AccountToken: [] },
+  ],
   components: {
     securitySchemes: {
       ApiKeyAuth: { type: 'http', scheme: 'bearer', description: 'Your Open IpaaS API key.' },
-      AccountToken: { type: 'apiKey', in: 'header', name: 'X-Account-Token', description: 'The connected account to act on.' },
+      Provider: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-Provider',
+        description: 'The service to act on, for example RD_STATION_CRM. Resolves to the one connection the client has on it.',
+      },
+      AccountToken: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-Account-Token',
+        description: 'The connection token: one exact connection. Needed when a client has two on the same service.',
+      },
     },
     schemas: {
       Customer: schemaOf(UnifiedCustomerSchema),

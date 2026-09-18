@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import type { Client, LinkedAccount } from '@prisma/client';
+import type { Client, LinkedAccount, OAuthCredential } from '@prisma/client';
 
 import prisma from './prisma';
 import { hashApiKey } from './crypto';
@@ -10,6 +10,7 @@ import { recordRequest } from './request-log';
 import { consume, DEFAULT_LIMIT, DEFAULT_WINDOW_MS } from './api-rate-limit';
 import * as idempotency from './idempotency';
 import { createProvider, isKnownProvider } from './providers/core/registry';
+import { findManifest } from './providers/core/manifests';
 import { ProviderError, isProviderError } from './providers/core/errors';
 import type { ListParams, ProviderContext, UnifiedProvider } from './providers/core/types';
 
@@ -170,27 +171,10 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
 
       /* -------------------------------------------------- 3. connected account */
 
-      const accountToken = req.headers.get('X-Account-Token');
-      if (!accountToken) {
-        return finish(
-          NextResponse.json({ error: 'Missing X-Account-Token header', code: 'INVALID_REQUEST', requestId }, { status: 400 }),
-          'INVALID_REQUEST'
-        );
-      }
+      const resolved = await resolveConnection(req, apiKeyRecord.clientId, requestId);
+      if ('response' in resolved) return finish(resolved.response, resolved.code);
 
-      const linkedAccount = await prisma.linkedAccount.findUnique({
-        where: { accountToken },
-        include: { credentials: true, client: true },
-      });
-
-      // Same response whether the token is unknown or belongs to another client,
-      // so the endpoint cannot be used to probe for valid tokens.
-      if (!linkedAccount || linkedAccount.clientId !== apiKeyRecord.clientId) {
-        return finish(
-          NextResponse.json({ error: 'Invalid X-Account-Token', code: 'UNAUTHORIZED', requestId }, { status: 401 }),
-          'UNAUTHORIZED'
-        );
-      }
+      const { linkedAccount } = resolved;
       linkedAccountId = linkedAccount.id;
       providerSlug = linkedAccount.provider;
 
@@ -295,6 +279,89 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
       return finish(response, code);
     }
   };
+}
+
+/**
+ * Which of the client's connections a request is for.
+ *
+ * The API key is the client. Inside it, a request picks one connection either by
+ * its connection token (`X-Account-Token`, exact, always works) or by the name
+ * of the service (`X-Provider: RD_STATION_CRM`, readable, works while the client
+ * has one account on that service). The token wins when both are sent, so a
+ * caller that pinned an account keeps it.
+ *
+ * Every lookup is scoped to the key's own client. Another client's token and
+ * another client's service are the same answer: not found here.
+ */
+async function resolveConnection(
+  req: NextRequest,
+  clientId: string,
+  requestId: string
+): Promise<
+  | { linkedAccount: LinkedAccount & { credentials: OAuthCredential[]; client: Client } }
+  | { response: NextResponse; code: string }
+> {
+  const refuse = (status: number, code: string, error: string) => ({
+    response: NextResponse.json({ error, code, requestId }, { status }),
+    code,
+  });
+
+  const accountToken = req.headers.get('X-Account-Token');
+
+  if (accountToken) {
+    const linkedAccount = await prisma.linkedAccount.findUnique({
+      where: { accountToken },
+      include: { credentials: true, client: true },
+    });
+
+    // Same response whether the token is unknown or belongs to another client,
+    // so the endpoint cannot be used to probe for valid tokens.
+    if (!linkedAccount || linkedAccount.clientId !== clientId) {
+      return refuse(401, 'UNAUTHORIZED', 'Invalid X-Account-Token');
+    }
+    return { linkedAccount };
+  }
+
+  const requested = req.headers.get('X-Provider');
+
+  if (!requested) {
+    return refuse(
+      400,
+      'INVALID_REQUEST',
+      'Pick a connection: send X-Provider with the service name, or X-Account-Token with the connection token.'
+    );
+  }
+
+  const manifest = findManifest(requested);
+  if (!manifest) {
+    return refuse(
+      400,
+      'INVALID_REQUEST',
+      `Unknown provider "${requested.trim()}". The service names are listed by GET /api/unified/v1/providers.`
+    );
+  }
+
+  const matches = await prisma.linkedAccount.findMany({
+    where: { clientId, provider: manifest.slug },
+    include: { credentials: true, client: true },
+    take: 2,
+  });
+
+  if (matches.length === 0) {
+    return refuse(404, 'NOT_FOUND', `This client has no ${manifest.name} connection.`);
+  }
+
+  // Two accounts on one service is legitimate, and guessing between them would
+  // write to the wrong customer's system. The token is how a caller says which.
+  if (matches.length > 1) {
+    return refuse(
+      409,
+      'AMBIGUOUS_CONNECTION',
+      `This client has more than one ${manifest.name} connection. Send X-Account-Token to pick one.`
+    );
+  }
+
+  return { linkedAccount: matches[0] };
 }
 
 /**
