@@ -10,6 +10,7 @@ import { ClientName } from './components/ClientName'
 import { currentUser } from '@/lib/auth-session'
 import { canDestroy } from '@/lib/dashboard/roles'
 import { PageHeader } from '@/components/dashboard/PageHeader'
+import { McpSetupDialog } from '@/components/dashboard/McpSetupDialog'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -20,6 +21,8 @@ export default async function ClientsPage() {
   // Revoking is one-way for whoever is calling with the key, so it is an owner's
   // decision. Members can still issue keys and see which ones exist.
   const mayRevoke = canDestroy(me?.role)
+  // An agent connects to this deployment, so the snippets have to name it.
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').trim()
 
   const clients = await prisma.client.findMany({
     include: {
@@ -72,6 +75,9 @@ export default async function ClientsPage() {
                     <Button size="sm" variant="outline" asChild>
                       <Link href="/dashboard/linked-accounts">Connect an account</Link>
                     </Button>
+                  )}
+                  {client._count.linkedAccounts > 0 && (
+                    <McpSetupDialog scope="client" clientName={client.name} appUrl={appUrl} />
                   )}
                   <GenerateKeyButton clientId={client.id} />
                 </div>

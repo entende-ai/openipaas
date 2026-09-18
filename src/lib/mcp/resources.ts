@@ -1,5 +1,7 @@
 import { openApiSpec } from '@/lib/openapi';
 import { toolName, toolsFor } from './tools';
+import { PREFIX_SEPARATOR } from './connections';
+import type { McpConnection, McpContext } from './server';
 import type { Operation, ProviderManifest, ResourceName } from '@/lib/providers/core/types';
 
 /**
@@ -11,7 +13,7 @@ import type { Operation, ProviderManifest, ResourceName } from '@/lib/providers/
  * exists for the parts of an upstream API this platform has not unified. That
  * knowledge used to live in a guide a person had to paste in.
  *
- * Every word of it is generated from the connected account's own manifest, so
+ * Every word of it is generated from the connected accounts' own manifests, so
  * a new provider gets correct documentation the day it is added, and a fork
  * with providers we have never seen gets it too.
  */
@@ -24,26 +26,35 @@ export interface McpResource {
   mimeType: string;
 }
 
-export interface ResourceContext {
-  manifest: ProviderManifest;
-  /** The API consumer the account token belongs to, named in the guide. */
-  clientName: string;
-}
-
 export const GUIDE_URI = 'openipaas://guide';
 export const CAPABILITIES_URI = 'openipaas://capabilities';
 export const OPENAPI_URI = 'openipaas://openapi.json';
 
-export function providerUri(slug: string): string {
-  return `openipaas://provider/${slug}`;
+export function providerUri(key: string): string {
+  return `openipaas://provider/${key}`;
 }
 
-export function resourcesFor(manifest: ProviderManifest): McpResource[] {
+/** A connection's own key: its prefix without the separator, or its slug. */
+export function connectionKey(connection: McpConnection): string {
+  return connection.prefix
+    ? connection.prefix.slice(0, -PREFIX_SEPARATOR.length)
+    : connection.provider.manifest.slug;
+}
+
+export function resourcesFor(ctx: McpContext): McpResource[] {
+  const notes = ctx.connections.map((connection) => ({
+    uri: providerUri(connectionKey(connection)),
+    name: connectionKey(connection),
+    title: `${connection.label} notes`,
+    description: `What is specific to ${connection.label}: its own documentation, its limits, and the paths worth calling through passthrough.`,
+    mimeType: 'text/markdown',
+  }));
+
   return [
     {
       uri: GUIDE_URI,
       name: 'guide',
-      title: 'How to work with this account',
+      title: ctx.scope === 'client' ? `How to work with ${ctx.clientName}` : 'How to work with this account',
       description:
         'Start here. What this connection is, how paging and errors work, and when to use passthrough instead of a unified tool.',
       mimeType: 'text/markdown',
@@ -51,17 +62,11 @@ export function resourcesFor(manifest: ProviderManifest): McpResource[] {
     {
       uri: CAPABILITIES_URI,
       name: 'capabilities',
-      title: 'What this account supports',
+      title: 'What these accounts support',
       description: 'The resource and operation matrix behind the tool list, and the tool name for each pair.',
       mimeType: 'application/json',
     },
-    {
-      uri: providerUri(manifest.slug),
-      name: manifest.slug,
-      title: `${manifest.name} notes`,
-      description: `What is specific to ${manifest.name}: its own documentation, its limits, and the paths worth calling through passthrough.`,
-      mimeType: 'text/markdown',
-    },
+    ...notes,
     {
       uri: OPENAPI_URI,
       name: 'openapi',
@@ -72,44 +77,53 @@ export function resourcesFor(manifest: ProviderManifest): McpResource[] {
   ];
 }
 
-/** The matrix, machine readable, with the tool that serves each pair. */
-function capabilitiesPayload(manifest: ProviderManifest) {
-  const resources = Object.entries(manifest.capabilities).map(([resource, operations]) => ({
+/** One connection's matrix, with the tool that serves each pair. */
+function matrixFor(manifest: ProviderManifest, prefix: string) {
+  return Object.entries(manifest.capabilities).map(([resource, operations]) => ({
     resource,
     operations: (operations as readonly Operation[]).map((operation) => ({
       operation,
-      tool: toolName(resource as ResourceName, operation),
+      tool: `${prefix}${toolName(resource as ResourceName, operation)}`,
     })),
   }));
+}
+
+function capabilitiesPayload(ctx: McpContext) {
+  // Anything not listed is not a gap in the tools: the provider does not have
+  // it, or this platform has not unified it yet.
+  const unsupportedBehaviour = 'A resource or operation that is absent is absent from the tool list too.';
+
+  if (ctx.scope === 'connection') {
+    const { manifest } = ctx.connections[0].provider;
+
+    return {
+      provider: { slug: manifest.slug, name: manifest.name, category: manifest.category },
+      resources: matrixFor(manifest, ''),
+      passthrough: manifest.passthrough,
+      unsupportedBehaviour,
+    };
+  }
 
   return {
-    provider: { slug: manifest.slug, name: manifest.name, category: manifest.category },
-    resources,
-    passthrough: manifest.passthrough,
-    // Anything not listed here is not a gap in the tools: the provider does not
-    // have it, or this platform has not unified it yet.
-    unsupportedBehaviour: 'A resource or operation that is absent is absent from the tool list too.',
+    client: ctx.clientName,
+    connections: ctx.connections.map((connection) => ({
+      toolPrefix: connection.prefix,
+      provider: {
+        slug: connection.provider.manifest.slug,
+        name: connection.provider.manifest.name,
+        category: connection.provider.manifest.category,
+      },
+      label: connection.label,
+      resources: matrixFor(connection.provider.manifest, connection.prefix),
+      passthrough: connection.provider.manifest.passthrough,
+    })),
+    unsupportedBehaviour,
   };
 }
 
-function guide(ctx: ResourceContext): string {
-  const { manifest, clientName } = ctx;
-  const tools = toolsFor(manifest);
-  const resources = Object.keys(manifest.capabilities);
-
-  const lines = [
-    `# Working with ${manifest.name} through Open IpaaS`,
-    '',
-    `This connection acts for **${clientName}**, against one connected ${manifest.name} account. Every tool call`,
-    'reaches that account and no other, so there is no customer or tenant to pass: the credentials the connection',
-    'was opened with decide whose data this is.',
-    '',
-    '## The tools you have are the tools this account has',
-    '',
-    resources.length > 0
-      ? `Unified resources here: ${resources.join(', ')}. Call \`tools/list\` rather than assuming a tool exists; the list is built from what ${manifest.name} actually supports, so it differs between providers and can grow when a provider gains a capability.`
-      : `This account exposes no unified resources${manifest.passthrough ? ', so the raw API through `passthrough` is the way in' : ''}.`,
-    '',
+/** The reading and writing rules, which do not vary by provider. */
+function contractSection(): string[] {
+  return [
     '## Reading',
     '',
     '- A list tool answers with `items`, `hasMore` and `nextCursor`. To continue, pass `nextCursor` back as `cursor`.',
@@ -119,7 +133,7 @@ function guide(ctx: ResourceContext): string {
     '',
     '## Writing',
     '',
-    '- Only the fields this provider accepts are written. Unknown fields are ignored rather than rejected, so a write that silently did nothing is worth reading back.',
+    '- Only the fields the provider accepts are written. Unknown fields are ignored rather than rejected, so a write that silently did nothing is worth reading back.',
     '- An `upsert` tool, where one exists, matches on a field you name and either creates or updates. It refuses to guess: if the match finds more than one record, it fails instead of picking one.',
     '- An `update` is partial. Send the fields you are changing, not the whole record.',
     '',
@@ -131,31 +145,92 @@ function guide(ctx: ResourceContext): string {
     'not a retry.',
     '',
   ];
+}
 
-  if (manifest.passthrough) {
+function passthroughSection(connection: McpConnection): string[] {
+  const { manifest } = connection.provider;
+  if (!manifest.passthrough) return [];
+
+  const lines = [
+    `### ${connection.label}: passthrough`,
+    '',
+    `\`${connection.prefix}passthrough\` calls ${manifest.name}'s own API under the same credentials, for the parts of`,
+    'it this platform has not unified. You give a method and a path; the response is whatever the provider sends,',
+    'unchanged and unnormalized. Prefer a unified tool when one exists, because only those are stable across providers.',
+    '',
+  ];
+
+  if (manifest.passthroughExamples?.length) {
+    lines.push('Paths worth knowing:', '');
+    for (const example of manifest.passthroughExamples) lines.push(`- \`${example.path}\` ${example.label}`);
+    lines.push('');
+  }
+
+  return lines;
+}
+
+function guide(ctx: McpContext): string {
+  const lines: string[] = [];
+
+  if (ctx.scope === 'client') {
     lines.push(
-      '## Passthrough',
+      `# Working with ${ctx.clientName} through Open IpaaS`,
       '',
-      `\`passthrough\` calls ${manifest.name}'s own API under the same credentials, for the parts of it this platform`,
-      'has not unified. You give a method and a path; the response is whatever the provider sends, unchanged and',
-      'unnormalized. Prefer a unified tool when one exists, because only those are stable across providers.',
+      `This server covers every account connected for **${ctx.clientName}**, and nothing outside it. Each tool name`,
+      'starts with the account it belongs to, so a call reaches that account and no other, and the same resource on',
+      'two systems can never be confused for one.',
+      '',
+      '## The accounts on this connection',
       ''
     );
 
-    if (manifest.passthroughExamples?.length) {
-      lines.push('Paths worth knowing on this provider:', '');
-      for (const example of manifest.passthroughExamples) {
-        lines.push(`- \`${example.path}\` ${example.label}`);
-      }
-      lines.push('');
+    if (ctx.connections.length === 0) {
+      lines.push('None yet. Connect a provider account in the dashboard and its tools appear here.', '');
     }
+
+    for (const connection of ctx.connections) {
+      const resources = Object.keys(connection.provider.manifest.capabilities);
+      lines.push(
+        `- **${connection.label}**, tools prefixed \`${connection.prefix}\`. ` +
+          (resources.length > 0 ? `Unified resources: ${resources.join(', ')}.` : 'No unified resources.') +
+          (connection.provider.manifest.passthrough ? ' Has passthrough.' : '')
+      );
+    }
+    lines.push('');
+  } else {
+    const only = ctx.connections[0];
+    const resources = Object.keys(only.provider.manifest.capabilities);
+
+    lines.push(
+      `# Working with ${only.label} through Open IpaaS`,
+      '',
+      `This connection acts for **${ctx.clientName}**, against one connected ${only.provider.manifest.name} account.`,
+      'Every tool call reaches that account and no other, so there is no customer or tenant to pass: the credentials',
+      'the connection was opened with decide whose data this is.',
+      '',
+      '## The tools you have are the tools this account has',
+      '',
+      resources.length > 0
+        ? `Unified resources here: ${resources.join(', ')}. Call \`tools/list\` rather than assuming a tool exists; the list is built from what ${only.provider.manifest.name} actually supports, so it differs between providers and can grow when a provider gains a capability.`
+        : `This account exposes no unified resources${only.provider.manifest.passthrough ? ', so the raw API through `passthrough` is the way in' : ''}.`,
+      ''
+    );
   }
+
+  lines.push(...contractSection());
+
+  const passthrough = ctx.connections.flatMap(passthroughSection);
+  if (passthrough.length > 0) lines.push('## Passthrough', '', ...passthrough);
+
+  const tools = ctx.connections.flatMap((connection) => toolsFor(connection.provider.manifest, connection.prefix));
 
   lines.push(
     '## Where the rest is',
     '',
     `- \`${CAPABILITIES_URI}\` the same matrix as JSON, with the tool name for every pair.`,
-    `- \`${providerUri(manifest.slug)}\` what is specific to ${manifest.name}.`,
+    ...ctx.connections.map(
+      (connection) => `- \`${providerUri(connectionKey(connection))}\` what is specific to ${connection.label}.`
+    ),
     `- \`${OPENAPI_URI}\` the HTTP API behind these tools, for work outside this connection.`,
     '',
     `You have ${tools.length} ${tools.length === 1 ? 'tool' : 'tools'} on this connection.`
@@ -164,9 +239,11 @@ function guide(ctx: ResourceContext): string {
   return lines.join('\n');
 }
 
-function providerNotes(manifest: ProviderManifest): string {
+function providerNotes(connection: McpConnection): string {
+  const { manifest } = connection.provider;
+
   const lines = [
-    `# ${manifest.name}`,
+    `# ${connection.label}`,
     '',
     manifest.description,
     '',
@@ -174,6 +251,8 @@ function providerNotes(manifest: ProviderManifest): string {
     `- Authentication: ${manifest.auth.type}, held and refreshed by Open IpaaS. You never see a provider token.`,
     `- Upstream base URL: ${manifest.baseUrl}`,
   ];
+
+  if (connection.prefix) lines.push(`- Tools for this account start with \`${connection.prefix}\`.`);
 
   if (manifest.rateLimit) {
     lines.push(
@@ -188,7 +267,7 @@ function providerNotes(manifest: ProviderManifest): string {
   lines.push(
     '',
     manifest.passthrough
-      ? `The raw ${manifest.name} API is reachable through the \`passthrough\` tool, so anything missing from the unified tools is still one call away.`
+      ? `The raw ${manifest.name} API is reachable through the \`${connection.prefix}passthrough\` tool, so anything missing from the unified tools is still one call away.`
       : `This provider has no passthrough: the unified tools are the whole surface.`
   );
 
@@ -202,18 +281,17 @@ function providerNotes(manifest: ProviderManifest): string {
  * the standalone build does not carry, and a guide pasted into a string would
  * be a second copy to keep true.
  */
-export function readResource(uri: string, ctx: ResourceContext): { mimeType: string; text: string } | null {
+export function readResource(uri: string, ctx: McpContext): { mimeType: string; text: string } | null {
   if (uri === GUIDE_URI) return { mimeType: 'text/markdown', text: guide(ctx) };
 
   if (uri === CAPABILITIES_URI) {
-    return { mimeType: 'application/json', text: JSON.stringify(capabilitiesPayload(ctx.manifest), null, 2) };
-  }
-
-  if (uri === providerUri(ctx.manifest.slug)) {
-    return { mimeType: 'text/markdown', text: providerNotes(ctx.manifest) };
+    return { mimeType: 'application/json', text: JSON.stringify(capabilitiesPayload(ctx), null, 2) };
   }
 
   if (uri === OPENAPI_URI) return { mimeType: 'application/json', text: JSON.stringify(openApiSpec, null, 2) };
+
+  const connection = ctx.connections.find((entry) => providerUri(connectionKey(entry)) === uri);
+  if (connection) return { mimeType: 'text/markdown', text: providerNotes(connection) };
 
   return null;
 }
