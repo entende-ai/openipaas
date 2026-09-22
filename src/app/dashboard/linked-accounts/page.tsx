@@ -49,7 +49,11 @@ export default async function LinkedAccountsPage() {
   // The prefix an agent sees depends on the other connections of the same
   // client, so it is computed per client, over the same set the server accepts.
   const agentPrefix = new Map<string, string>()
-  const byClient = Map.groupBy(accounts, (account) => account.clientId)
+  // A plain loop rather than Map.groupBy: the image runs Node 20, which does not have it.
+  const byClient = new Map<string, typeof accounts>()
+  for (const account of accounts) {
+    byClient.set(account.clientId, [...(byClient.get(account.clientId) ?? []), account])
+  }
   for (const group of byClient.values()) {
     const prefixes = clientScopePrefixes(
       group.map((account) => ({
