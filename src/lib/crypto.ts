@@ -112,6 +112,18 @@ export function generateApiKeyValue(): { plaintext: string; hash: string; prefix
   return { plaintext, hash: hashApiKey(plaintext), prefix: plaintext.slice(0, 16) };
 }
 
+/**
+ * An admin key, which crosses clients and so is a different kind of thing.
+ *
+ * The prefix differs on purpose: the two are never interchangeable, and one
+ * pasted where the other belongs should be recognisable in a log line and in a
+ * support conversation without anyone holding the secret up to the light.
+ */
+export function generateAdminKeyValue(): { plaintext: string; hash: string; prefix: string } {
+  const plaintext = `oip_admin_${crypto.randomBytes(24).toString('hex')}`;
+  return { plaintext, hash: hashApiKey(plaintext), prefix: plaintext.slice(0, 17) };
+}
+
 /** Constant-time compare, for anything that must not leak length/position. */
 export function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a, 'utf8');

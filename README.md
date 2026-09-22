@@ -100,13 +100,17 @@ Deploying for real is covered in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 Start with the **[integration guide](docs/INTEGRATION.md)**: client, key, connection, first call, and what each provider does differently. The reference below is the short version; the live API reference is at `/docs`.
 
-Every request carries two headers:
+**The key is the client, the service picks the system.** A key belongs to exactly one client and reaches that client's connections and nothing else. Each request then says which of them it is for, by service name:
 
 ```bash
 curl https://your-host/api/unified/v1/customers \
   -H "Authorization: Bearer oip_live_..." \
-  -H "X-Account-Token: <connected account token>"
+  -H "X-Provider: CONTA_AZUL"
 ```
+
+`X-Account-Token: <connection token>` pins one exact connection instead, which is only needed when a client has two accounts on the same service. `GET /api/unified/v1/connections` lists what a client has, with the service name, the status and the token of each.
+
+**Scopes**: a key carries what it may do, as `read:contacts` or `write:*`, chosen when it is issued. A call outside them is `403 FORBIDDEN` before any provider is reached.
 
 **Pagination** is cursor-based and provider-agnostic:
 
@@ -120,27 +124,32 @@ Pass `nextCursor` back as `?cursor=`. `totalItems` is best effort, because curso
 
 **Errors** carry a stable `code` and a `requestId` (also in `X-Request-Id`). Upstream payloads are logged, never returned.
 
-**Capabilities**: `GET /api/unified/v1/providers` returns the catalog and the exact operation matrix. A `501 NOT_SUPPORTED` means the connected provider lacks that operation, and it is answered before any upstream call.
+**Capabilities**: `GET /api/unified/v1/providers` returns the catalog and the exact operation matrix, and is public. A `501 NOT_SUPPORTED` means the connected provider lacks that operation, and it is answered before any upstream call.
+
+**Webhooks**: a client is told when one of its connections is made, breaks or is removed. Deliveries are signed and retried. See the [integration guide](docs/INTEGRATION.md#being-told-when-a-connection-breaks).
+
+**Admin API**: creating clients, issuing and rotating their keys, and registering their webhook endpoints, from your own product rather than from the dashboard. See [docs/ADMIN.md](docs/ADMIN.md).
 
 **Passthrough**, for anything the unified model does not cover:
 
 ```bash
 curl https://your-host/api/unified/v1/passthrough/pessoas?pagina=1 \
   -H "Authorization: Bearer oip_live_..." \
-  -H "X-Account-Token: ..."
+  -H "X-Provider: OMIE"
 ```
 
 ## 🤖 MCP server
 
-The same deployment is a remote MCP server at `/api/mcp`, so an AI agent can use a connected account without anyone writing a client:
+The same deployment is a remote MCP server at `/api/mcp`, so an AI agent can use a client's connected accounts without anyone writing a client:
 
 ```bash
 claude mcp add --transport http openipaas https://your-host/api/mcp \
-  --header "Authorization: Bearer oip_live_..." \
-  --header "X-Account-Token: <connected account token>"
+  --header "Authorization: Bearer oip_live_..."
 ```
 
-Tools are derived from the account's capability matrix, so they differ per connected provider and nothing is written per provider. See the [integration guide](docs/INTEGRATION.md#using-it-from-an-ai-agent).
+With the key alone, the server covers every account that client has connected, and each tool name starts with the account it belongs to (`rd_station_crm__list_contacts`). Adding `X-Provider` or `X-Account-Token` narrows it to one connection, with plain tool names.
+
+Tools are derived from each account's capability matrix, so they differ per connected provider and nothing is written per provider. A scoped key gets a shorter list rather than tools that refuse. See [docs/MCP.md](docs/MCP.md).
 
 ## 🌱 Sandbox data
 

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CreateClientDialog } from './components/CreateClientDialog'
 import { GenerateKeyButton } from './components/GenerateKeyButton'
+import { AdminKeys } from './components/AdminKeys'
 import { RevokeKeyButton } from './components/RevokeKeyButton'
 import { ClientName } from './components/ClientName'
 import { currentUser } from '@/lib/auth-session'
@@ -51,6 +52,11 @@ export default async function ClientsPage() {
   // An agent connects to this deployment, so the snippets have to name it.
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').trim()
 
+  const adminKeys = await prisma.adminKey.findMany({
+    where: { revokedAt: null },
+    orderBy: { createdAt: 'desc' },
+  })
+
   const clients = await prisma.client.findMany({
     include: {
       apiKeys: { orderBy: { createdAt: 'desc' } },
@@ -71,6 +77,17 @@ export default async function ClientsPage() {
       >
         <CreateClientDialog />
       </PageHeader>
+
+      <AdminKeys
+        mayManage={mayRevoke}
+        keys={adminKeys.map((key) => ({
+          id: key.id,
+          prefix: key.keyPrefix,
+          name: key.name,
+          createdAt: key.createdAt.toISOString(),
+          lastUsedAt: key.lastUsedAt?.toISOString() ?? null,
+        }))}
+      />
 
       {clients.length === 0 && (
         <Card>
