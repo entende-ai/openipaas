@@ -15,6 +15,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [Writing](#writing)
 - [Writing a record you may already have](#writing-a-record-you-may-already-have)
 - [Knowing what a provider can do](#knowing-what-a-provider-can-do)
+- [How much you may call](#how-much-you-may-call)
 - [Errors](#errors)
 - [Passthrough](#passthrough)
 - [Being told when a connection breaks](#being-told-when-a-connection-breaks)
@@ -274,6 +275,21 @@ Each entry carries a capability matrix: which resources exist and which operatio
 
 The same matrix is rendered in the API reference at `/docs`.
 
+## How much you may call
+
+Two budgets, both per minute, both counted across every instance when Redis is configured:
+
+- **Per client**, 600 requests by default. The whole company, whatever it calls with.
+- **Per key**, half of that by default, inside the client one. A key can be given its own limit when it is
+  issued through the [admin API](ADMIN.md).
+
+The second exists because one client often has two callers with opposite shapes: a sync that walks every page and
+an agent that asks one question. On a single counter the sync starves the agent, and what the person sees is a
+slow product with nothing in the logs to blame. Give each caller its own key and they stop competing.
+
+A `429` carries `Retry-After`, `X-RateLimit-Limit` and `X-RateLimit-Scope`, which is `key` or `client` and says
+which budget ran out: one is fixed by spreading the work, the other by asking for a bigger allowance.
+
 ## Errors
 
 Every error carries a stable `code` and a `requestId`, also returned in the `X-Request-Id` header. Quote the `requestId` when reporting a problem: it is how a specific call is found in the logs. Upstream payloads are logged, never returned, so provider error text cannot leak customer data into your application.
@@ -286,7 +302,7 @@ Every error carries a stable `code` and a `requestId`, also returned in the `X-R
 | `INVALID_REQUEST` | The body or parameters did not validate | Read `error`, fix the call |
 | `NOT_FOUND` | No such record on the provider | |
 | `NOT_SUPPORTED` | The provider lacks this operation | Check the capability matrix, branch in your code |
-| `RATE_LIMITED` | Too many requests, ours or the provider's | Back off and retry; we already throttle to the provider's documented limit |
+| `RATE_LIMITED` | Too many requests, ours or the provider's | Back off and retry; read `X-RateLimit-Scope` to see whether it was this key or the whole client |
 | `TOKEN_EXPIRED` | The connection needs reauthorizing | Reconnect the account in the dashboard |
 | `UPSTREAM_ERROR` / `UPSTREAM_TIMEOUT` | The provider failed or did not answer | Retry with the same `Idempotency-Key` |
 | `CONFIG_ERROR` | The deployment is missing a credential or setting | For the operator, not the caller |

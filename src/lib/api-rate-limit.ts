@@ -103,3 +103,40 @@ function sweep(current: number) {
 
 export const DEFAULT_LIMIT = Number(process.env.API_RATE_LIMIT_PER_MINUTE || 600);
 export const DEFAULT_WINDOW_MS = 60_000;
+
+/**
+ * What one key may spend of its client budget, unless the key says otherwise.
+ *
+ * Half the client budget by default, because the shape this protects against is
+ * two callers on one client: a sync that walks every page and an agent that
+ * asks one question. Sharing a single counter, the sync starves the agent and
+ * the person watching sees a slow product with nothing in the logs to blame.
+ */
+export const DEFAULT_KEY_LIMIT = Number(process.env.API_RATE_LIMIT_PER_KEY_PER_MINUTE || Math.ceil(DEFAULT_LIMIT / 2));
+
+export interface KeyBudget {
+  clientId: string;
+  keyId: string;
+  /** From ApiKey.rateLimit when the operator set one. */
+  keyLimit?: number | null;
+}
+
+/**
+ * Both budgets, the client one first.
+ *
+ * Order matters: a client already over its budget must not also spend its key
+ * budget, or a caller that is refused still pays for the attempt twice, and the
+ * key window empties from requests that never ran.
+ */
+export async function consumeForKey(
+  budget: KeyBudget
+): Promise<{ verdict: RateLimitVerdict; scope: 'client' | 'key' }> {
+  const client = await consume(`client:${budget.clientId}`, DEFAULT_LIMIT, DEFAULT_WINDOW_MS);
+  if (!client.allowed) return { verdict: client, scope: 'client' };
+
+  const limit = budget.keyLimit && budget.keyLimit > 0 ? budget.keyLimit : DEFAULT_KEY_LIMIT;
+  const key = await consume(`key:${budget.keyId}`, limit, DEFAULT_WINDOW_MS);
+
+  // The tighter of the two is what the caller should see in the headers.
+  return key.remaining <= client.remaining ? { verdict: key, scope: 'key' } : { verdict: client, scope: 'client' };
+}

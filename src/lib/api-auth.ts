@@ -7,7 +7,7 @@ import { hashApiKey } from './crypto';
 import { pickActiveCredential, toProviderContext } from './credentials';
 import { refreshCredential } from './token-refresh';
 import { recordRequest } from './request-log';
-import { consume, DEFAULT_LIMIT, DEFAULT_WINDOW_MS } from './api-rate-limit';
+import { consumeForKey, type RateLimitVerdict } from './api-rate-limit';
 import * as idempotency from './idempotency';
 import { createProvider, isKnownProvider } from './providers/core/registry';
 import { findManifest } from './providers/core/manifests';
@@ -80,6 +80,37 @@ function errorResponse(error: unknown, requestId: string): { response: NextRespo
     ),
     code: 'INTERNAL_ERROR',
   };
+}
+
+/**
+ * The 429, saying which budget ran out.
+ *
+ * Which one matters to whoever has to fix it: a client over budget needs fewer
+ * callers or a bigger allowance, a key over budget needs its own limit raised
+ * or its work spread out. Without it, both look like the same wall.
+ */
+function throttled(
+  budget: { verdict: RateLimitVerdict; scope: 'client' | 'key' },
+  requestId: string
+): NextResponse {
+  const subject = budget.scope === 'key' ? 'This key' : 'This client';
+
+  return NextResponse.json(
+    {
+      error: `Rate limit exceeded. ${subject} may make ${budget.verdict.limit} requests per minute.`,
+      code: 'RATE_LIMITED',
+      requestId,
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': String(budget.verdict.retryAfterSeconds),
+        'X-RateLimit-Limit': String(budget.verdict.limit),
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Scope': budget.scope,
+      },
+    }
+  );
 }
 
 /* ------------------------------------------------------------------ *
@@ -179,23 +210,12 @@ export function withUnifiedAuth<P = Record<string, string>>(
 
       /* -------------------------------------------------- 3. rate limit */
 
-      const verdict = await consume(`client:${apiKeyRecord.clientId}`, DEFAULT_LIMIT, DEFAULT_WINDOW_MS);
-      if (!verdict.allowed) {
-        return finish(
-          NextResponse.json(
-            { error: 'Rate limit exceeded', code: 'RATE_LIMITED', requestId },
-            {
-              status: 429,
-              headers: {
-                'Retry-After': String(verdict.retryAfterSeconds),
-                'X-RateLimit-Limit': String(verdict.limit),
-                'X-RateLimit-Remaining': '0',
-              },
-            }
-          ),
-          'RATE_LIMITED'
-        );
-      }
+      const budget = await consumeForKey({
+        clientId: apiKeyRecord.clientId,
+        keyId: apiKeyRecord.id,
+        keyLimit: apiKeyRecord.rateLimit,
+      });
+      if (!budget.verdict.allowed) return finish(throttled(budget, requestId), 'RATE_LIMITED');
 
       /* -------------------------------------------------- 4. connected account */
 
@@ -592,23 +612,12 @@ export function withClientAuth(handler: ClientHandler) {
         );
       }
 
-      const verdict = await consume(`client:${apiKeyRecord.clientId}`, DEFAULT_LIMIT, DEFAULT_WINDOW_MS);
-      if (!verdict.allowed) {
-        return finish(
-          NextResponse.json(
-            { error: 'Rate limit exceeded', code: 'RATE_LIMITED', requestId },
-            {
-              status: 429,
-              headers: {
-                'Retry-After': String(verdict.retryAfterSeconds),
-                'X-RateLimit-Limit': String(verdict.limit),
-                'X-RateLimit-Remaining': '0',
-              },
-            }
-          ),
-          'RATE_LIMITED'
-        );
-      }
+      const budget = await consumeForKey({
+        clientId: apiKeyRecord.clientId,
+        keyId: apiKeyRecord.id,
+        keyLimit: apiKeyRecord.rateLimit,
+      });
+      if (!budget.verdict.allowed) return finish(throttled(budget, requestId), 'RATE_LIMITED');
 
       const client = await prisma.client.findUnique({ where: { id: apiKeyRecord.clientId } });
       if (!client) {

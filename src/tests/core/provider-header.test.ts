@@ -54,8 +54,13 @@ vi.mock('@/lib/request-log', () => ({
 }));
 
 vi.mock('@/lib/api-rate-limit', () => ({
-  consume: async () => ({ allowed: true, limit: 600, retryAfterSeconds: 0 }),
+  consume: async () => ({ allowed: true, limit: 600, remaining: 599, retryAfterSeconds: 0 }),
+  consumeForKey: async () => ({
+    verdict: { allowed: true, limit: 600, remaining: 599, resetAtMs: 0, retryAfterSeconds: 0 },
+    scope: 'key' as const,
+  }),
   DEFAULT_LIMIT: 600,
+  DEFAULT_KEY_LIMIT: 300,
   DEFAULT_WINDOW_MS: 60_000,
 }));
 

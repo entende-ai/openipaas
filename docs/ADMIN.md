@@ -65,11 +65,14 @@ back in your code, where it has to be maintained.
 | `GET` | `/clients/{id}` | One client, with its connections in the shape `GET /connections` uses |
 | `PATCH` | `/clients/{id}` | Renames it |
 | `GET` | `/clients/{id}/keys` | Its keys: prefix, name, scopes, when issued, when last used, when revoked |
-| `POST` | `/clients/{id}/keys` | Issues one. `{ "name": "...", "scopes": ["read:contacts"] }`. Answers with the key, once |
+| `POST` | `/clients/{id}/keys` | Issues one. `{ "name": "...", "scopes": ["read:contacts"], "rateLimit": 120 }`. Answers with the key, once |
 | `POST` | `/keys/{id}` | Rotates: issues a replacement with the same name and scopes, and revokes this one, in one transaction |
 | `DELETE` | `/keys/{id}` | Revokes. Revoking an already revoked key is not an error |
 | `GET` | `/clients/{id}/webhooks` | Its endpoints |
 | `POST` | `/clients/{id}/webhooks` | Registers one. `{ "url": "https://...", "events": [...] }`. Answers with the signing secret, once |
+
+`rateLimit` is that key budget in requests per minute, inside its client budget. Leave it out for the platform
+default, or set a small one for a caller that walks every page so it cannot starve the others on the same client.
 
 Scopes are the same vocabulary the unified API enforces, described in the
 [integration guide](INTEGRATION.md#what-a-key-may-do). Asking for a scope list that cannot be read is a 400 rather
