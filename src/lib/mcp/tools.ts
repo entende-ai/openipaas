@@ -73,6 +73,23 @@ const LIST_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * The same list schema plus `updatedAfter`, offered only where the provider
+ * documents the filter. A model given the argument everywhere would use it
+ * everywhere, and be told no by half the tools it has.
+ */
+const INCREMENTAL_LIST_SCHEMA = {
+  ...LIST_SCHEMA,
+  properties: {
+    ...LIST_SCHEMA.properties,
+    updatedAfter: {
+      type: 'string',
+      description:
+        'ISO-8601 instant. Only records changed since then come back, which is how you follow up on a list you already have instead of reading it all again.',
+    },
+  },
+};
+
 const MATCH_PROPERTIES = {
   field: {
     type: 'string',
@@ -120,10 +137,14 @@ function writeSchema(resource: ResourceName, withId: boolean) {
   };
 }
 
-function schemaFor(resource: ResourceName, operation: Operation): Record<string, unknown> {
+function schemaFor(
+  resource: ResourceName,
+  operation: Operation,
+  manifest?: ProviderManifest
+): Record<string, unknown> {
   switch (operation) {
     case 'list':
-      return LIST_SCHEMA;
+      return manifest?.incremental?.includes(resource) ? INCREMENTAL_LIST_SCHEMA : LIST_SCHEMA;
     case 'search':
       return MATCH_SCHEMA;
     case 'create':
@@ -239,7 +260,7 @@ export function toolsFor(manifest: ProviderManifest, prefix = '', scopes: string
         name: `${prefix}${toolName(resource as ResourceName, operation)}`,
         title: `${operation[0].toUpperCase() + operation.slice(1)} ${resource}`,
         description: describe(manifest, resource as ResourceName, operation),
-        inputSchema: schemaFor(resource as ResourceName, operation),
+        inputSchema: schemaFor(resource as ResourceName, operation, manifest),
         annotations: {
           readOnlyHint: READ_ONLY.includes(operation),
           destructiveHint: DESTRUCTIVE.includes(operation),
@@ -346,6 +367,7 @@ export function callArgs(binding: ToolBinding, args: Record<string, unknown>): u
           ...(args.cursor ? { cursor: args.cursor } : {}),
           ...(args.limit ? { limit: args.limit } : {}),
           ...(args.search ? { search: args.search } : {}),
+          ...(args.updatedAfter ? { updatedAfter: args.updatedAfter } : {}),
         },
       ];
     case 'create':

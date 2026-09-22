@@ -113,6 +113,12 @@ where the provider allows it, each name carrying its service in a client scope.
 A capability the provider does not have is not a tool, so there is nothing to
 explain and nothing to guess.
 
+The same rule applies inside a tool. A list tool takes `updatedAfter` only where
+that provider documents a filter on update time; elsewhere the argument is not
+offered, and sending it anyway is refused rather than ignored. A provider that
+drops an unknown filter answers with its whole table, and an agent told that is
+a delta would act on the wrong picture.
+
 **Resources**, which is the documentation:
 
 | URI | What it is |

@@ -11,6 +11,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [What a client has connected](#what-a-client-has-connected)
 - [4. Make the first call](#4-make-the-first-call)
 - [Paging through a list](#paging-through-a-list)
+- [Reading only what changed](#reading-only-what-changed)
 - [Writing](#writing)
 - [Writing a record you may already have](#writing-a-record-you-may-already-have)
 - [Knowing what a provider can do](#knowing-what-a-provider-can-do)
@@ -97,7 +98,8 @@ The connection shows its **service name** (`RD_STATION_CRM`), which is what `X-P
 `GET /providers` is the catalog of what the platform supports. `GET /connections` is what one client has:
 
 ```bash
-curl https://app.openipaas.com/api/unified/v1/connections   -H "Authorization: Bearer oip_live_..."
+curl https://app.openipaas.com/api/unified/v1/connections \
+  -H "Authorization: Bearer oip_live_..."
 ```
 
 ```json
@@ -183,6 +185,37 @@ Loop while `hasMore` is true, passing `nextCursor` back as `cursor`. Never build
 `totalItems` is best effort and is **absent from the response** for providers whose API cannot report a total, which is the case for RD Station CRM. Do not drive a progress bar off it without a fallback.
 
 `search` is accepted where the provider supports free-text search, and ignored where it does not.
+
+## Reading only what changed
+
+A full page walk is fine for a first load and wrong for a sync that runs every ten minutes. List endpoints take
+`updatedAfter`, an ISO-8601 instant:
+
+```bash
+curl "https://app.openipaas.com/api/unified/v1/contacts?updatedAfter=2026-09-22T00:00:00Z" \
+  -H "Authorization: Bearer oip_live_..." \
+  -H "X-Provider: RD_STATION_CRM"
+```
+
+It works only where the provider documents such a filter, and a resource that does not have one answers
+`501 NOT_SUPPORTED` naming the ones that do. That refusal is the point: a provider handed a filter it does not
+know answers with its whole table, and a caller expecting a delta has no way to tell that it got everything.
+
+Which resources accept it is in the catalog and in the connection, as `incremental`:
+
+```bash
+curl https://app.openipaas.com/api/unified/v1/providers | jq '.items[] | {slug, incremental}'
+```
+
+Today: RD Station CRM on `contacts`, `companies` and `deals`. Nothing on the others yet, which means their
+documentation does not promise it, not that the data cannot change.
+
+Two things to get right when you build on this:
+
+- Keep the timestamp of the last successful run, not of the last record you saw, and overlap it by a minute. A
+  record written while you were paging would otherwise fall between two runs.
+- `updatedAfter` filters; it does not tell you about deletions. A record deleted upstream simply stops appearing,
+  so a periodic full read is still what reconciles removals.
 
 ## Writing
 

@@ -46,6 +46,9 @@ export const rdStationCrmManifest: ProviderManifest = {
     pipelines: ['list'],
   },
 
+  // RD documents created_at and updated_at as RDQL filter properties on these
+  // three list endpoints, and on no others.
+  incremental: ['contacts', 'companies', 'deals'],
   passthrough: true,
 
   // Straight from the CRM v2 reference. Listing endpoints are paginated, so

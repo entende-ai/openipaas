@@ -66,6 +66,18 @@ interface RdListResponse {
   links?: { next?: string | null };
 }
 
+/**
+ * An instant in the shape RDQL wants: `"YYYY-MM-DD HH:MM:SS"`, quoted because
+ * it contains a space.
+ *
+ * Sent as UTC. RD documents the format and not the zone, and UTC is the only
+ * choice that is the same for every account rather than silently wrong for the
+ * ones in another timezone.
+ */
+export function rdqlDateTime(iso: string): string {
+  return `"${new Date(iso).toISOString().slice(0, 19).replace('T', ' ')}"`;
+}
+
 export class RdStationCrmProvider extends BaseProvider {
   readonly manifest: ProviderManifest = rdStationCrmManifest;
 
@@ -291,9 +303,14 @@ export class RdStationCrmProvider extends BaseProvider {
     const size = Number(params.limit) > 0 ? Number(params.limit) : DEFAULT_PAGE_SIZE;
 
     const query: Record<string, string | number> = { 'page[number]': page, 'page[size]': size };
-    // RDQL, which is `property:value` separated by spaces. Only a name match
-    // is exposed for now, since the grammar for anything richer is undocumented.
-    if (params.search) query.filter = `name:~${params.search}`;
+
+    // RDQL, which is `property:value` separated by spaces, combined with an
+    // implicit AND. Only the two filters RD documents for these endpoints are
+    // built here: a name match, and the last update time.
+    const filters: string[] = [];
+    if (params.search) filters.push(`name:~${params.search}`);
+    if (params.updatedAfter) filters.push(`updated_at:>=${rdqlDateTime(params.updatedAfter)}`);
+    if (filters.length > 0) query.filter = filters.join(' ');
 
     const response = await this.request<RdListResponse>(ctx, { method: 'GET', path, query });
     const data = Array.isArray(response?.data) ? response.data : [];

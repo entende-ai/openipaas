@@ -43,6 +43,8 @@ export interface ConnectionView {
   connectedAt: string;
   lastUsedAt: string | null;
   capabilities: Partial<Record<ResourceName, readonly Operation[]>>;
+  /** Resources whose list accepts updatedAfter on this service. */
+  incremental: readonly ResourceName[];
   passthrough: boolean;
 }
 
@@ -98,6 +100,7 @@ export function describeConnections(params: {
       connectedAt: account.createdAt.toISOString(),
       lastUsedAt: lastUsed ? lastUsed.toISOString() : null,
       capabilities: manifest?.capabilities ?? {},
+      incremental: manifest?.incremental ?? [],
       passthrough: manifest?.passthrough ?? false,
     };
   });
