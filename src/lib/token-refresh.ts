@@ -2,7 +2,8 @@ import type { OAuthCredential, Prisma } from '@prisma/client';
 import prisma from './prisma';
 import { decrypt, decryptNullable, encrypt, encryptNullable } from './crypto';
 import { getManifest } from './providers/core/registry';
-import { ProviderError } from './providers/core/errors';
+import { ProviderError, isProviderError } from './providers/core/errors';
+import { emitConnectionEvent } from './webhooks';
 import type { ProviderContext, ProviderManifest } from './providers/core/types';
 
 /**
@@ -81,9 +82,45 @@ export function refreshCredential(ctx: ProviderContext): Promise<RenewedCredenti
   const pending = inFlight.get(ctx.credentialId);
   if (pending) return pending;
 
-  const run = refreshWithLock(ctx).finally(() => inFlight.delete(ctx.credentialId));
+  const run = refreshWithLock(ctx)
+    .catch(async (error) => {
+      // A connection that cannot renew itself is a connection a person has to
+      // reconnect, and the caller is usually a program at three in the morning.
+      // Announcing it here covers every way a refresh can fail at once.
+      if (isProviderError(error) && error.code === 'TOKEN_EXPIRED') {
+        await announceExpiry(ctx.credentialId, error.publicMessage);
+      }
+      throw error;
+    })
+    .finally(() => inFlight.delete(ctx.credentialId));
+
   inFlight.set(ctx.credentialId, run);
   return run;
+}
+
+/**
+ * Tells the client's endpoints that one of its connections needs reconnecting.
+ *
+ * Never allowed to turn a failed refresh into a different failure: the caller is
+ * already handling one, and a webhook that could not be queued is not the
+ * caller's problem.
+ */
+async function announceExpiry(credentialId: string, reason: string): Promise<void> {
+  try {
+    const credential = await prisma.oAuthCredential.findUnique({
+      where: { id: credentialId },
+      select: { linkedAccountId: true },
+    });
+    if (!credential) return;
+
+    await emitConnectionEvent({
+      eventType: 'connection.expired',
+      linkedAccountId: credential.linkedAccountId,
+      reason,
+    });
+  } catch (error) {
+    console.error('[TokenRefresh] could not announce an expired connection:', (error as Error).message);
+  }
 }
 
 /**
