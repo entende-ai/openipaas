@@ -17,6 +17,7 @@ function view(key: {
   keyPrefix: string | null
   name: string | null
   scopes: string[]
+  rateLimit: number | null
   createdAt: Date
   lastUsedAt: Date | null
   revokedAt: Date | null
@@ -27,6 +28,7 @@ function view(key: {
     name: key.name,
     scopes: key.scopes,
     can: describeScopes(key.scopes),
+    rateLimit: key.rateLimit,
     createdAt: key.createdAt.toISOString(),
     lastUsedAt: key.lastUsedAt?.toISOString() ?? null,
     revokedAt: key.revokedAt?.toISOString() ?? null,
@@ -62,6 +64,14 @@ export const POST = withAdminAuth<{ id: string }>(async (_req, auth, routeCtx) =
     )
   }
 
+  // A key with its own budget, for a caller whose shape differs from the rest:
+  // a nightly sync that walks every page, or an agent that must stay responsive
+  // while one does.
+  const rateLimit = auth.body?.rateLimit
+  if (rateLimit !== undefined && (typeof rateLimit !== 'number' || !Number.isInteger(rateLimit) || rateLimit < 1)) {
+    return adminError(400, 'INVALID_REQUEST', 'rateLimit must be a whole number of requests per minute.', auth.requestId)
+  }
+
   const { plaintext, hash, prefix } = generateApiKeyValue()
   const created = await prisma.apiKey.create({
     data: {
@@ -69,6 +79,7 @@ export const POST = withAdminAuth<{ id: string }>(async (_req, auth, routeCtx) =
       keyPrefix: prefix,
       name: typeof auth.body?.name === 'string' ? auth.body.name.trim() || null : null,
       scopes: requested.length > 0 ? requested : FULL_ACCESS,
+      rateLimit: rateLimit ?? null,
       clientId: id,
     },
   })

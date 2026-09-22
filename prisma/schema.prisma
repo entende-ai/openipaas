@@ -73,6 +73,8 @@ model ApiKey {
   /// What this key may do, as `action:resource` (`read:contacts`, `write:*`).
   /// Empty means everything, which is how keys issued before scopes behave.
   scopes    String[]  @default([])
+  /// Requests per minute for this key alone. Null uses the platform default.
+  rateLimit Int?
   // Legacy plaintext column, kept until every row is migrated to keyHash.
   key       String?   @unique
   clientId  String

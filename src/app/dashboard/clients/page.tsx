@@ -157,7 +157,10 @@ export default async function ClientsPage() {
                           </p>
                           {/* What a key may do cannot be changed after it is issued, so it is
                               stated next to the key rather than hidden behind an edit screen. */}
-                          <p className="text-xs text-muted-foreground">Can {describeScopes(key.scopes).toLowerCase()}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Can {describeScopes(key.scopes).toLowerCase()}
+                            {key.rateLimit ? ` · ${key.rateLimit} requests per minute` : ''}
+                          </p>
                         </div>
 
                         <div className="flex items-center gap-2">

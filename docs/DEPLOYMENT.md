@@ -93,7 +93,8 @@ known secrets, none of which belong on a server.
 | `DASHBOARD_SESSION_SECRET` | yes | Changing it logs everyone out, which is how you revoke sessions |
 | `INTERNAL_JOB_SECRET` | yes | Authorizes the webhook delivery job |
 | `REDIS_URL` | for >1 instance | Without it, rate limiting and idempotency are per process |
-| `API_RATE_LIMIT_PER_MINUTE` | no | Defaults to 600 |
+| `API_RATE_LIMIT_PER_MINUTE` | no | Per client. Defaults to 600 |
+| `API_RATE_LIMIT_PER_KEY_PER_MINUTE` | no | Per key, inside the client budget. Defaults to half of the client one |
 | `<SLUG>_CLIENT_ID` / `<SLUG>_CLIENT_SECRET` | per provider | From the provider's developer portal |
 | `RUN_SEED` | no | Development only. Wipes every table |
 
