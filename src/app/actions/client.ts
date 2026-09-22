@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { generateApiKeyValue } from '@/lib/crypto'
 import { requireDashboardSession, requireOwner } from '@/lib/auth-session'
+import { FULL_ACCESS, parseScopes } from '@/lib/scopes'
 
 /**
  * A client's name is a label for the people running the console.
@@ -61,16 +62,28 @@ export async function renameClient(clientId: string, formData: FormData) {
  * The plaintext is returned once and never stored: only its SHA-256 digest and a
  * display prefix are persisted, so a database dump yields no usable keys.
  */
-export async function generateApiKey(clientId: string, name?: string) {
+/**
+ * Issues a key, named and scoped.
+ *
+ * The scope is chosen here rather than edited later on purpose: changing what a
+ * key may do, in place, changes what something already running is allowed to do
+ * without that thing being told. Issuing a second key and revoking the first is
+ * the same change, made visible.
+ */
+export async function generateApiKey(clientId: string, name?: string, scopes?: string[]) {
   await requireDashboardSession()
 
   const { plaintext, hash, prefix } = generateApiKeyValue()
+  // An unreadable or empty scope list would mean full access, so anything the
+  // form did not spell out correctly falls back to saying so explicitly.
+  const requested = parseScopes(scopes)
 
   await prisma.apiKey.create({
     data: {
       keyHash: hash,
       keyPrefix: prefix,
       name: name?.trim() || null,
+      scopes: requested.length > 0 ? requested : FULL_ACCESS,
       clientId,
     },
   })

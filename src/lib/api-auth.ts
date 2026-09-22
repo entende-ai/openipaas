@@ -11,6 +11,7 @@ import { consume, DEFAULT_LIMIT, DEFAULT_WINDOW_MS } from './api-rate-limit';
 import * as idempotency from './idempotency';
 import { createProvider, isKnownProvider } from './providers/core/registry';
 import { findManifest } from './providers/core/manifests';
+import { actionForMethod, allows, describeScopes, parseScopes, resourceForPath } from './scopes';
 import { ProviderError, isProviderError } from './providers/core/errors';
 import type { ListParams, ProviderContext, UnifiedProvider } from './providers/core/types';
 
@@ -25,6 +26,8 @@ export interface UnifiedAuthContext {
   params: ListParams;
   /** Parsed JSON body for write methods; null otherwise. */
   body: any;
+  /** What the presented key may do. Empty means everything. */
+  scopes: string[];
 }
 
 type RouteCtx<P> = { params: Promise<P> };
@@ -88,7 +91,12 @@ function errorResponse(error: unknown, requestId: string): { response: NextRespo
  * authentication, throttling, idempotency, provider resolution, error
  * translation and request logging.
  */
-export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>) {
+export function withUnifiedAuth<P = Record<string, string>>(
+  handler: Handler<P>,
+  options: { /** False where the path is not one resource, as on /api/mcp. */ enforceScope?: boolean } = {}
+) {
+  const enforceScope = options.enforceScope ?? true;
+
   return async (req: NextRequest, routeCtx: RouteCtx<P>) => {
     const requestId = crypto.randomUUID();
     const startedAt = Date.now();
@@ -149,7 +157,27 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
         );
       }
 
-      /* -------------------------------------------------- 2. rate limit */
+      /* -------------------------------------------------- 2. scope */
+
+      const scopes = parseScopes(apiKeyRecord.scopes);
+      const action = actionForMethod(req.method);
+      const resource = resourceForPath(url.pathname);
+
+      if (enforceScope && !allows(scopes, action, resource)) {
+        return finish(
+          NextResponse.json(
+            {
+              error: `This key is not allowed to ${action} ${resource ?? 'this resource'}. It can: ${describeScopes(scopes).toLowerCase()}.`,
+              code: 'FORBIDDEN',
+              requestId,
+            },
+            { status: 403 }
+          ),
+          'FORBIDDEN'
+        );
+      }
+
+      /* -------------------------------------------------- 3. rate limit */
 
       const verdict = await consume(`client:${apiKeyRecord.clientId}`, DEFAULT_LIMIT, DEFAULT_WINDOW_MS);
       if (!verdict.allowed) {
@@ -169,7 +197,7 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
         );
       }
 
-      /* -------------------------------------------------- 3. connected account */
+      /* -------------------------------------------------- 4. connected account */
 
       const resolved = await resolveConnection(req, apiKeyRecord.clientId, requestId);
       if ('response' in resolved) return finish(resolved.response, resolved.code);
@@ -199,7 +227,7 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
         );
       }
 
-      /* -------------------------------------------------- 4. body + idempotency */
+      /* -------------------------------------------------- 5. body + idempotency */
 
       let body: any = null;
       if (WRITE_METHODS.has(req.method)) {
@@ -239,7 +267,7 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
         }
       }
 
-      /* -------------------------------------------------- 5. dispatch */
+      /* -------------------------------------------------- 6. dispatch */
 
       const provider = createProvider(linkedAccount.provider, { refreshCredential });
       const credentials = toProviderContext(credential, linkedAccount.provider);
@@ -252,6 +280,7 @@ export function withUnifiedAuth<P = Record<string, string>>(handler: Handler<P>)
         credentials,
         params: parseListParams(url),
         body,
+        scopes,
       };
 
       const response = await handler(req, auth, routeCtx);
@@ -431,6 +460,15 @@ export interface ClientAuthContext {
    * cannot tell it apart from one that was never made.
    */
   accounts: (LinkedAccount & { credentials: OAuthCredential[] })[];
+  /**
+   * What the presented key may do. Empty means everything.
+   *
+   * Enforced by the caller rather than here: a client-scoped request is not one
+   * resource, so what a scope means depends on what is being asked. A listing
+   * checks one pair; the MCP server filters its tools instead, which is a
+   * better answer than a tool that exists and always fails.
+   */
+  scopes: string[];
   body: any;
 }
 
@@ -566,7 +604,14 @@ export function withClientAuth(handler: ClientHandler) {
         }
       }
 
-      const response = await handler(req, { requestId, client, connections, accounts: linkedAccounts, body });
+      const response = await handler(req, {
+        requestId,
+        client,
+        connections,
+        accounts: linkedAccounts,
+        scopes: parseScopes(apiKeyRecord.scopes),
+        body,
+      });
 
       prisma.apiKey
         .update({ where: { id: apiKeyRecord.id }, data: { lastUsedAt: new Date() } })

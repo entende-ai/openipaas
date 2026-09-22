@@ -53,12 +53,14 @@ async function answer(ctx: McpContext, body: unknown) {
 }
 
 /** One connection: the tool names stay exactly as they were. */
-const connectionScope = withUnifiedAuth(async (_req: NextRequest, auth: UnifiedAuthContext) =>
-  answer(
+const connectionScope = withUnifiedAuth(
+  async (_req: NextRequest, auth: UnifiedAuthContext) =>
+    answer(
     {
       requestId: auth.requestId,
       clientName: auth.client.name,
       scope: 'connection',
+      keyScopes: auth.scopes,
       connections: [
         {
           provider: auth.provider,
@@ -68,8 +70,11 @@ const connectionScope = withUnifiedAuth(async (_req: NextRequest, auth: UnifiedA
         },
       ],
     },
-    auth.body
-  )
+      auth.body
+    ),
+  // One POST here can be a read or a write, so the scope is enforced per tool
+  // rather than on the path.
+  { enforceScope: false }
 );
 
 /** Every connection this client has, each tool carrying the one it belongs to. */
@@ -86,6 +91,7 @@ const clientScope = withClientAuth(async (_req: NextRequest, auth: ClientAuthCon
       requestId: auth.requestId,
       clientName: auth.client.name,
       scope: 'client',
+      keyScopes: auth.scopes,
       connections: auth.connections.map((connection, index) => ({
         provider: connection.provider,
         credentials: connection.credentials,

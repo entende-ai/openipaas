@@ -9,7 +9,8 @@ import {
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from './protocol';
-import { bindingFor, callArgs, toolsFor } from './tools';
+import { bindingFor, callArgs, scopeForBinding, toolsFor } from './tools';
+import { allows, describeScopes } from '@/lib/scopes';
 import { GUIDE_URI, readResource, resourcesFor } from './resources';
 
 /**
@@ -41,6 +42,14 @@ export interface McpContext {
   /** 'connection' keeps the plain tool names an existing agent already knows. */
   scope: 'connection' | 'client';
   connections: McpConnection[];
+  /**
+   * What the key behind this server may do. Empty means everything.
+   *
+   * A scoped key gets a shorter tool list rather than tools that refuse: a model
+   * works from what it can see, so a tool it must not use should not be there.
+   * The call is checked again anyway, because a list is a suggestion.
+   */
+  keyScopes: string[];
 }
 
 /** A tool failed. That is a result the model can read, not a protocol error. */
@@ -95,6 +104,17 @@ async function callTool(ctx: McpContext, params: Record<string, unknown> | undef
         code: JSONRPC_ERRORS.INVALID_PARAMS,
         message: `${scope} has no tool named "${name}". Call tools/list to see what this connection offers.`,
       },
+    };
+  }
+
+  // Checked here and not only in tools/list: a model can send a name it was
+  // never offered, and passthrough carries its method in the arguments.
+  const intent = scopeForBinding(binding, typeof args.method === 'string' ? args.method : 'GET');
+  if (!allows(ctx.keyScopes, intent.action, intent.resource)) {
+    return {
+      payload: toolFailure(
+        `FORBIDDEN: this key may not ${intent.action} ${intent.resource}. It can: ${describeScopes(ctx.keyScopes).toLowerCase()}.`
+      ),
     };
   }
 
@@ -156,7 +176,9 @@ export async function dispatch(message: JsonRpcRequest, ctx: McpContext): Promis
 
     case 'tools/list':
       return result(message.id, {
-        tools: ctx.connections.flatMap((connection) => toolsFor(connection.provider.manifest, connection.prefix)),
+        tools: ctx.connections.flatMap((connection) =>
+          toolsFor(connection.provider.manifest, connection.prefix, ctx.keyScopes)
+        ),
       });
 
     case 'tools/call': {

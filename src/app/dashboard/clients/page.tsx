@@ -15,6 +15,7 @@ import { clientScopePrefixes, connectionLabel } from '@/lib/mcp/connections'
 import { isKnownProvider } from '@/lib/providers/core/registry'
 import { findManifest } from '@/lib/providers/core/manifests'
 import { pickActiveCredential } from '@/lib/credentials'
+import { describeScopes } from '@/lib/scopes'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -137,6 +138,9 @@ export default async function ClientsPage() {
                             {key.name ? `${key.name} · ` : ''}issued {key.createdAt.toISOString().slice(0, 10)}
                             {key.lastUsedAt ? ` · last used ${key.lastUsedAt.toISOString().slice(0, 10)}` : ' · never used'}
                           </p>
+                          {/* What a key may do cannot be changed after it is issued, so it is
+                              stated next to the key rather than hidden behind an edit screen. */}
+                          <p className="text-xs text-muted-foreground">Can {describeScopes(key.scopes).toLowerCase()}</p>
                         </div>
 
                         <div className="flex items-center gap-2">

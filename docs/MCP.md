@@ -130,10 +130,18 @@ the documentation exists before it makes its first call.
 
 ## What an agent can do with it
 
-Everything the API key can do, including writes. A tool call is an API call:
-same authentication, same rate limit, same request log. If that is more than you
-want to hand an agent, give it its own API key so you can revoke it on its own,
-and check the API logs page, where its calls appear like anyone else's.
+Everything the API key can do, and no more. A tool call is an API call: same
+authentication, same scopes, same rate limit, same request log.
+
+That last part is the lever. A key is scoped when it is issued, and an agent
+holding a scoped key gets a shorter tool list rather than tools that refuse: a
+read-only key sees no `create_` or `update_` tool at all, and its `passthrough`
+tool accepts only `GET`. Asking anyway fails with `FORBIDDEN` before the
+provider is reached, because a list is a suggestion and a model can type a name
+it was never offered.
+
+Give the agent its own key, scoped to what the work needs, so you can revoke it
+on its own. Its calls appear on the API logs page like anyone else's.
 
 A failed tool call comes back as a result marked `isError`, carrying a code and
 a short message. The upstream detail stays in the server log with a request id.
