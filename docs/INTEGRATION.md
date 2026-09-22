@@ -7,6 +7,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [2. Issue an API key](#2-issue-an-api-key)
 - [3. Connect an account](#3-connect-an-account)
 - [Service names](#service-names)
+- [What a client has connected](#what-a-client-has-connected)
 - [4. Make the first call](#4-make-the-first-call)
 - [Paging through a list](#paging-through-a-list)
 - [Writing](#writing)
@@ -60,6 +61,49 @@ The connection shows its **service name** (`RD_STATION_CRM`), which is what `X-P
 ## Service names
 
 `GET /api/unified/v1/providers` lists every service this deployment knows, with the `slug` that `X-Provider` expects. It is public, so it needs no key at all. Matching is case-insensitive, so `rd_station_crm` works as well.
+
+## What a client has connected
+
+`GET /providers` is the catalog of what the platform supports. `GET /connections` is what one client has:
+
+```bash
+curl https://app.openipaas.com/api/unified/v1/connections   -H "Authorization: Bearer oip_live_..."
+```
+
+```json
+{
+  "items": [
+    {
+      "id": "1f0a...",
+      "label": "RD Station CRM",
+      "service": "RD_STATION_CRM",
+      "serviceName": "RD Station CRM",
+      "status": "active",
+      "statusDetail": "Token valid for 2 hours.",
+      "needsAttention": false,
+      "connectionToken": "act_...",
+      "agentToolPrefix": "rd_station_crm__",
+      "connectedAt": "2026-09-01T10:00:00.000Z",
+      "lastUsedAt": "2026-09-21T09:00:00.000Z",
+      "capabilities": { "contacts": ["list", "get", "create", "update", "search", "upsert"] },
+      "passthrough": true
+    }
+  ],
+  "totalItems": 1
+}
+```
+
+It takes the key on its own, with no connection named, and answers with the connections of that key's client and
+no others. Three things it is for:
+
+- Drawing a screen. `status` and `statusDetail` say why something is not answering, and `needsAttention` is the
+  one field worth putting a badge on. Connections with no working credential are listed, not hidden.
+- Knowing what to send. `service` is the `X-Provider` value; `capabilities` is what that connection supports, so
+  you can avoid a call that would come back `501 NOT_SUPPORTED`.
+- Recovering from an ambiguity on your own. `connectionToken` is the `X-Account-Token` that pins one account.
+
+The connection token is an address, not a credential: on its own it authenticates nothing, and it only means
+anything alongside a key that already reaches that connection. That is why this endpoint can hand it over.
 
 ## 4. Make the first call
 
@@ -174,7 +218,7 @@ Every error carries a stable `code` and a `requestId`, also returned in the `X-R
 | Code | Meaning | What to do |
 |---|---|---|
 | `UNAUTHORIZED` | Bad or revoked key, or a connection token that does not belong to the client | Check both headers |
-| `AMBIGUOUS_CONNECTION` | `X-Provider` named a service the client has more than one account on | Send `X-Account-Token` to pin one |
+| `AMBIGUOUS_CONNECTION` | `X-Provider` named a service the client has more than one account on | Pick one from the `connections` array in the body and resend with `X-Account-Token` |
 | `INVALID_REQUEST` | The body or parameters did not validate | Read `error`, fix the call |
 | `NOT_FOUND` | No such record on the provider | |
 | `NOT_SUPPORTED` | The provider lacks this operation | Check the capability matrix, branch in your code |

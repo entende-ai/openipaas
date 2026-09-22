@@ -61,8 +61,54 @@ const ERROR_SCHEMA = {
       ],
     },
     requestId: { type: 'string', description: 'Echoed in the X-Request-Id header. Quote it in support requests.' },
+    connections: {
+      type: 'array',
+      description:
+        'Only on AMBIGUOUS_CONNECTION: the candidates, so the caller can retry with X-Account-Token instead of asking a person.',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          label: { type: 'string' },
+          service: { type: 'string' },
+          connectionToken: { type: 'string' },
+        },
+      },
+    },
   },
   required: ['error', 'code'],
+};
+
+const CONNECTION_SCHEMA = {
+  type: 'object',
+  description: 'One provider account connected for this client.',
+  properties: {
+    id: { type: 'string' },
+    label: { type: 'string', description: 'The name the operator gave this connection.' },
+    service: { type: 'string', description: 'The service name, which is what X-Provider takes.' },
+    serviceName: { type: 'string', description: 'The provider display name, for a screen.' },
+    status: {
+      type: 'string',
+      enum: ['active', 'expiring', 'stale', 'expired', 'missing', 'unavailable'],
+      description: 'active works; stale renews itself on the next call; expired and missing need a reconnection.',
+    },
+    statusDetail: { type: 'string' },
+    needsAttention: { type: 'boolean', description: 'True while a person has to do something for this to work.' },
+    connectionToken: {
+      type: 'string',
+      description:
+        'Addresses this exact connection through X-Account-Token. An address, not a credential: on its own it authenticates nothing.',
+    },
+    agentToolPrefix: {
+      type: ['string', 'null'],
+      description: 'What the tool names of this account start with on the client-scoped MCP server.',
+    },
+    connectedAt: { type: 'string', format: 'date-time' },
+    lastUsedAt: { type: ['string', 'null'], format: 'date-time', description: 'Last request that reached it.' },
+    capabilities: { type: 'object', description: 'Resource to operations, the same shape /providers returns.' },
+    passthrough: { type: 'boolean' },
+  },
+  required: ['id', 'label', 'service', 'serviceName', 'status', 'connectionToken', 'connectedAt'],
 };
 
 const COMMON_ERRORS = {
@@ -210,6 +256,10 @@ export const openApiSpec = {
       '- `X-Account-Token: <connection token>`, pins one exact connection. Needed when a client has two accounts',
       '  on the same service, where `X-Provider` answers `409 AMBIGUOUS_CONNECTION`. Wins when both are sent.',
       '',
+      '`GET /connections` lists what this client has connected, with the service name, the connection token and the',
+      'status of each. It takes the key alone, and a `409 AMBIGUOUS_CONNECTION` carries the same candidates in its',
+      'body, so picking a connection never requires opening the dashboard.',
+      '',
       '## Pagination',
       'Responses carry `hasMore` and an opaque `nextCursor`. Pass the cursor back as `?cursor=`.',
       '`totalItems` is best-effort: providers with cursor-based APIs cannot report a total.',
@@ -282,6 +332,7 @@ export const openApiSpec = {
       Company: schemaOf(UnifiedCompanySchema),
       Deal: schemaOf(UnifiedDealSchema),
       Pipeline: schemaOf(UnifiedPipelineSchema),
+      Connection: CONNECTION_SCHEMA,
       Error: ERROR_SCHEMA,
     },
   },
@@ -368,6 +419,40 @@ export const openApiSpec = {
         responses: {
           '200': { description: 'A page of pipelines', content: { 'application/json': { schema: pageOf('Pipeline') } } },
           ...COMMON_ERRORS,
+        },
+      },
+    },
+    '/connections': {
+      get: {
+        tags: ['Platform'],
+        summary: 'List the connections of the client this key belongs to',
+        description: [
+          'What this client has connected, as opposed to /providers, which is what the platform supports.',
+          '',
+          'Takes the API key alone: there is no connection to pick, and the answer is always scoped to the',
+          'key own client. Connections that are not usable are listed too, with the status saying why, because',
+          'a caller cannot tell a broken connection from a missing one otherwise.',
+        ].join('\n'),
+        // The key alone, with no connection named.
+        security: [{ ApiKeyAuth: [] }],
+        responses: {
+          '200': {
+            description: 'The connections of this client',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    items: { type: 'array', items: { $ref: '#/components/schemas/Connection' } },
+                    totalItems: { type: 'integer' },
+                  },
+                  required: ['items', 'totalItems'],
+                },
+              },
+            },
+          },
+          '401': COMMON_ERRORS['401'],
+          '429': COMMON_ERRORS['429'],
         },
       },
     },

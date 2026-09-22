@@ -344,7 +344,7 @@ async function resolveConnection(
   const matches = await prisma.linkedAccount.findMany({
     where: { clientId, provider: manifest.slug },
     include: { credentials: true, client: true },
-    take: 2,
+    orderBy: { createdAt: 'asc' },
   });
 
   if (matches.length === 0) {
@@ -353,12 +353,32 @@ async function resolveConnection(
 
   // Two accounts on one service is legitimate, and guessing between them would
   // write to the wrong customer's system. The token is how a caller says which.
+  //
+  // The candidates travel in the error body, with their tokens. That reveals
+  // nothing: a connection token does nothing on its own, and this caller already
+  // holds the key that reaches all of them. Without them the caller is stuck
+  // until a person opens the dashboard, which is not an answer a program can act
+  // on.
   if (matches.length > 1) {
-    return refuse(
-      409,
-      'AMBIGUOUS_CONNECTION',
-      `This client has more than one ${manifest.name} connection. Send X-Account-Token to pick one.`
-    );
+    const candidates = matches.map((match) => ({
+      id: match.id,
+      label: match.label,
+      service: match.provider,
+      connectionToken: match.accountToken,
+    }));
+
+    return {
+      response: NextResponse.json(
+        {
+          error: `This client has more than one ${manifest.name} connection. Send X-Account-Token to pick one.`,
+          code: 'AMBIGUOUS_CONNECTION',
+          requestId,
+          connections: candidates,
+        },
+        { status: 409 }
+      ),
+      code: 'AMBIGUOUS_CONNECTION',
+    };
   }
 
   return { linkedAccount: matches[0] };
@@ -402,6 +422,15 @@ export interface ClientAuthContext {
   client: Client;
   /** Every connection of this client that is usable right now. */
   connections: ClientConnection[];
+  /**
+   * Every connection, usable or not, in the order they were connected.
+   *
+   * `connections` answers "what can I call"; this answers "what does this client
+   * have", which is a different question and the only one a listing can answer
+   * honestly: a connection whose credential died has to appear, or the caller
+   * cannot tell it apart from one that was never made.
+   */
+  accounts: (LinkedAccount & { credentials: OAuthCredential[] })[];
   body: any;
 }
 
@@ -537,7 +566,7 @@ export function withClientAuth(handler: ClientHandler) {
         }
       }
 
-      const response = await handler(req, { requestId, client, connections, body });
+      const response = await handler(req, { requestId, client, connections, accounts: linkedAccounts, body });
 
       prisma.apiKey
         .update({ where: { id: apiKeyRecord.id }, data: { lastUsedAt: new Date() } })
