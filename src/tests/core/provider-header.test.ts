@@ -17,6 +17,7 @@ type Account = {
   clientId: string;
   provider: string;
   accountToken: string;
+  label: string;
   credentials: { createdAt: Date }[];
   client: { id: string; name: string };
 };
@@ -82,7 +83,15 @@ const LADI_KEY = 'oip_test_ladi';
 const OTHER_KEY = 'oip_test_other';
 
 function account(id: string, client: typeof LADI, provider: string): Account {
-  return { id, clientId: client.id, provider, accountToken: `tok-${id}`, credentials: [{ createdAt: new Date() }], client };
+  return {
+    id,
+    clientId: client.id,
+    provider,
+    accountToken: `tok-${id}`,
+    label: provider,
+    credentials: [{ createdAt: new Date() }],
+    client,
+  };
 }
 
 async function call(headers: Record<string, string>) {
@@ -162,6 +171,24 @@ describe('the service name', () => {
     expect(status).toBe(409);
     expect(body.code).toBe('AMBIGUOUS_CONNECTION');
     expect(body.error).toContain('X-Account-Token');
+  });
+
+  // A refusal a program cannot act on sends the caller to a human. The
+  // candidates travel with the refusal so the next request can pick one.
+  it('lists the candidates, with the token that picks each', async () => {
+    state.accounts.push(account('rd-ladi-2', LADI, 'RD_STATION_CRM'));
+
+    const { body } = await call({ Authorization: `Bearer ${LADI_KEY}`, 'X-Provider': 'RD_STATION_CRM' });
+
+    expect(body.connections.map((entry: { id: string }) => entry.id)).toEqual(['rd-ladi', 'rd-ladi-2']);
+    expect(body.connections[1]).toMatchObject({ service: 'RD_STATION_CRM', connectionToken: 'tok-rd-ladi-2' });
+
+    // Following the refusal has to work, or the body is decoration.
+    const retry = await call({
+      Authorization: `Bearer ${LADI_KEY}`,
+      'X-Account-Token': body.connections[1].connectionToken,
+    });
+    expect(retry.body.connection).toBe('rd-ladi-2');
   });
 
   it('points at the catalog for a service that does not exist', async () => {
