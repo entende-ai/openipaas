@@ -86,6 +86,23 @@ model ApiKey {
   @@index([clientId])
 }
 
+/// A credential that crosses clients: it creates them and issues their keys.
+///
+/// Separate from ApiKey rather than a flag on it, because the two answer
+/// different questions. An ApiKey says which client a request is for; this one
+/// says a request is not for any client in particular, and may make new ones.
+model AdminKey {
+  id         String    @id @default(uuid())
+  /// SHA-256 of the key. The plaintext is shown once and never stored.
+  keyHash    String    @unique
+  /// Leading characters, kept clear so the dashboard can name a key.
+  keyPrefix  String
+  name       String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+}
+
 model LinkedAccount {
   id           String   @id @default(uuid())
   clientId     String

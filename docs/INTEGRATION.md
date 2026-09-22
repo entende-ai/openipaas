@@ -38,6 +38,9 @@ Four nouns, and they only make sense together:
 
 Either way, one integration serves many end customers without changing a line of code: a different key is a different client.
 
+Creating clients and issuing their keys can also be done from your own product, through the
+[admin API](ADMIN.md), which is the same two steps as a call.
+
 ## 1. Create a client
 
 Dashboard, **Clients**, **New client**. A name is all it takes.
