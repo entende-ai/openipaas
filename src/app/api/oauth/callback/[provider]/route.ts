@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { appUrl, consumeOAuthState, exchangeCodeForTokens, slugFromCallbackSegment } from '@/lib/oauth'
 import { persistNewCredential } from '@/lib/token-refresh'
+import { emitConnectionEvent } from '@/lib/webhooks'
 import { getManifest, isKnownProvider } from '@/lib/providers/core/registry'
 import { isProviderError } from '@/lib/providers/core/errors'
 
@@ -62,6 +63,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ provider: s
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
     })
+
+    // Also the event a subscriber gets when a broken connection is fixed: the
+    // account it was told had expired is working again.
+    await emitConnectionEvent({ eventType: 'connection.connected', linkedAccountId: linkedAccount.id })
 
     return NextResponse.redirect(`${appUrl()}/dashboard/linked-accounts?connected=${encodeURIComponent(manifest.name)}`)
   } catch (error) {

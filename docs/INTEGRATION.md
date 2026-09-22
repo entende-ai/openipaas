@@ -16,6 +16,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [Knowing what a provider can do](#knowing-what-a-provider-can-do)
 - [Errors](#errors)
 - [Passthrough](#passthrough)
+- [Being told when a connection breaks](#being-told-when-a-connection-breaks)
 - [Provider notes](#provider-notes)
 - [Nothing to read yet](#nothing-to-read-yet)
 
@@ -291,6 +292,52 @@ Conventions worth knowing when you read a transcript:
 - **Read and destructive tools are annotated**, so a client that asks for confirmation before acting knows which is which.
 
 Sent with only the key, the server covers every connection of that client and each tool name starts with its service, as in `rd_station_crm__list_contacts`. Adding `X-Provider` or `X-Account-Token` narrows it to that one connection with plain tool names. Either way a key reaches its own client and nothing else. `docs/MCP.md` has the details.
+
+## Being told when a connection breaks
+
+A token expires, a customer revokes access, somebody disconnects an account. Without webhooks you find out when
+your next call fails, which is usually in front of a user. Register an endpoint in the dashboard, under
+**Webhooks**, and pick the events:
+
+| Event | When |
+|---|---|
+| `connection.connected` | An account was connected, or reconnected after expiring |
+| `connection.expired` | A connection stopped working and needs reauthorizing. At most one per connection per hour while it stays broken |
+| `connection.disconnected` | A connection was removed. Calls naming it fail from now on |
+
+Those are all of them. An event that is not in that table is not emitted, so nothing else is worth subscribing to
+yet.
+
+The body is the same vocabulary as `GET /connections`:
+
+```json
+{
+  "id": "d3f1...",
+  "type": "connection.expired",
+  "createdAt": "2026-09-22T14:02:11.000Z",
+  "data": {
+    "connectionId": "1f0a...",
+    "service": "RD_STATION_CRM",
+    "serviceName": "RD Station CRM",
+    "label": "RD Station CRM",
+    "reason": "The RD Station CRM session expired. Please reconnect the account."
+  }
+}
+```
+
+Every delivery carries `X-OpenIpaas-Timestamp` and `X-OpenIpaas-Signature`, an HMAC-SHA256 over
+`timestamp.body` with the signing secret you were shown once when creating the endpoint. Verify it before trusting
+the body, and reject a timestamp more than a few minutes old:
+
+```js
+import crypto from 'crypto'
+
+const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex')
+const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+```
+
+Answer 2xx to accept. Anything else is retried with backoff, roughly at one minute, five, twenty five, two hours
+and ten hours, then given up on. Deliveries and their failures are visible on the Webhooks page.
 
 ## Provider notes
 

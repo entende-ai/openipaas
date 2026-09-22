@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { toStoredCredential } from '@/lib/credentials'
 import { getManifest, isKnownProvider } from '@/lib/providers/core/registry'
 import { requireDashboardSession, requireOwner } from '@/lib/auth-session'
+import { emitConnectionEvent } from '@/lib/webhooks'
 
 /**
  * Connects an account whose provider authenticates with static credentials
@@ -63,6 +64,8 @@ export async function connectErpAccount(formData: FormData) {
     },
   })
 
+  await emitConnectionEvent({ eventType: 'connection.connected', linkedAccountId: linkedAccount.id })
+
   revalidatePath('/dashboard/linked-accounts')
   return { success: true, linkedAccount: { id: linkedAccount.id, accountToken: linkedAccount.accountToken } }
 }
@@ -78,6 +81,9 @@ export async function deleteLinkedAccount(id: string) {
   // way whether it never existed or was already deleted.
   const account = await prisma.linkedAccount.findUnique({ where: { id }, select: { id: true } })
   if (!account) return { error: 'That connection no longer exists.' }
+
+  // Announced before the row goes, because the event is built from it.
+  await emitConnectionEvent({ eventType: 'connection.disconnected', linkedAccountId: id })
 
   await prisma.linkedAccount.delete({ where: { id } })
   revalidatePath('/dashboard/linked-accounts')
