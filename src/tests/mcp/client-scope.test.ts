@@ -40,7 +40,7 @@ function connection(overrides: Partial<McpConnection> & { manifest: ProviderMani
 }
 
 function clientScope(connections: McpConnection[]): McpContext {
-  return { requestId: 'req-1', clientName: 'LadiGroup', scope: 'client', connections };
+  return { requestId: 'req-1', clientName: 'LadiGroup', scope: 'client', connections, keyScopes: [] };
 }
 
 const rpc = (method: string, params?: Record<string, unknown>) =>

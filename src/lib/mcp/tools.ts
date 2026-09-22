@@ -1,4 +1,5 @@
 import { methodFor } from '@/lib/providers/core/operations';
+import { allows, type ScopeAction, type ScopeResource } from '@/lib/scopes';
 import type { Operation, ProviderManifest, ResourceName } from '@/lib/providers/core/types';
 
 /**
@@ -193,6 +194,24 @@ const DESTRUCTIVE: Operation[] = ['delete', 'bulkDelete'];
 const READ_ONLY: Operation[] = ['list', 'get', 'search', 'pdf'];
 
 /**
+ * What a tool would do, in the vocabulary a key is scoped in.
+ *
+ * Passthrough is the one tool whose action depends on the arguments, so it
+ * answers for the method being asked for rather than for itself.
+ */
+export function scopeForBinding(binding: ToolBinding, method = 'GET'): { action: ScopeAction; resource: ScopeResource } {
+  if (binding.kind === 'passthrough') {
+    const write = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
+    return { action: write ? 'write' : 'read', resource: 'passthrough' };
+  }
+
+  return {
+    action: READ_ONLY.includes(binding.operation as Operation) ? 'read' : 'write',
+    resource: binding.resource as ScopeResource,
+  };
+}
+
+/**
  * The tools a connected account exposes, derived from its manifest.
  *
  * The prefix is empty when the connection is the whole scope, and names the
@@ -201,7 +220,7 @@ const READ_ONLY: Operation[] = ['list', 'get', 'search', 'pdf'];
  * have different resources, and one `connection` parameter would let a model
  * ask Conta Azul for a deal.
  */
-export function toolsFor(manifest: ProviderManifest, prefix = ''): McpTool[] {
+export function toolsFor(manifest: ProviderManifest, prefix = '', scopes: string[] = []): McpTool[] {
   const tools: McpTool[] = [];
 
   for (const [resource, operations] of Object.entries(manifest.capabilities)) {
@@ -209,6 +228,12 @@ export function toolsFor(manifest: ProviderManifest, prefix = ''): McpTool[] {
       // A capability with no method behind it would be a tool that always
       // fails, so it is left out rather than advertised.
       if (!methodFor(resource as ResourceName, operation)) continue;
+
+      // A key the operator scoped down gets a shorter list, not a longer list
+      // with failures in it. A model cannot be trusted to avoid a tool it can
+      // see, and should not have to.
+      const { action } = scopeForBinding({ kind: 'resource', method: '', resource: resource as ResourceName, operation });
+      if (!allows(scopes, action, resource as ScopeResource)) continue;
 
       tools.push({
         name: `${prefix}${toolName(resource as ResourceName, operation)}`,
@@ -223,19 +248,25 @@ export function toolsFor(manifest: ProviderManifest, prefix = ''): McpTool[] {
     }
   }
 
-  if (manifest.passthrough) {
+  const mayReadRaw = allows(scopes, 'read', 'passthrough');
+  const mayWriteRaw = allows(scopes, 'write', 'passthrough');
+
+  if (manifest.passthrough && (mayReadRaw || mayWriteRaw)) {
+    const methods = mayWriteRaw ? ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] : ['GET'];
+
     tools.push({
       name: `${prefix}passthrough`,
       title: 'Raw provider request',
       description:
         `Call ${manifest.name}'s own API directly, for anything the unified tools do not cover. ` +
         `The path is appended to ${manifest.baseUrl} and the raw provider response comes back unchanged. ` +
-        `Prefer the unified tools: their shape is stable across providers, this one's is not.`,
+        `Prefer the unified tools: their shape is stable across providers, this one's is not.` +
+        (mayWriteRaw ? '' : ' This key may only read, so GET is the only method accepted.'),
       inputSchema: {
         type: 'object',
         properties: {
           path: { type: 'string', description: "Provider path, starting with /. For example '/contacts'." },
-          method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], default: 'GET' },
+          method: { type: 'string', enum: methods, default: 'GET' },
           query: { type: 'object', additionalProperties: true, description: 'Query string parameters.' },
           body: { type: 'object', additionalProperties: true, description: 'JSON body, for writes.' },
         },

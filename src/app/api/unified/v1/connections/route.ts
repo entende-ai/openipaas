@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { withClientAuth } from '@/lib/api-auth'
 import { describeConnections } from '@/lib/connections-view'
+import { allows } from '@/lib/scopes'
 
 /**
  * What this client has connected.
@@ -15,6 +16,13 @@ import { describeConnections } from '@/lib/connections-view'
  * nothing here to pick: a key sees its own connections and no others.
  */
 export const GET = withClientAuth(async (_req, auth) => {
+  if (!allows(auth.scopes, 'read', 'connections')) {
+    return NextResponse.json(
+      { error: 'This key is not allowed to read connections.', code: 'FORBIDDEN', requestId: auth.requestId },
+      { status: 403 }
+    )
+  }
+
   // One query for every connection: the last request that reached it, which is
   // what "when did this last work" means without asking the provider.
   const lastUsed = await prisma.requestLog.groupBy({

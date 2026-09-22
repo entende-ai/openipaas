@@ -6,6 +6,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [1. Create a client](#1-create-a-client)
 - [2. Issue an API key](#2-issue-an-api-key)
 - [3. Connect an account](#3-connect-an-account)
+- [What a key may do](#what-a-key-may-do)
 - [Service names](#service-names)
 - [What a client has connected](#what-a-client-has-connected)
 - [4. Make the first call](#4-make-the-first-call)
@@ -49,6 +50,31 @@ On the client, **Issue key**.
 The plaintext is shown once and never again: only a SHA-256 digest and a short display prefix are stored, so a database dump yields nothing usable. Copy it into your secret store at that moment. If you lose it, revoke it and issue another; there is no recovery path by design.
 
 Keys look like `oip_live_...`.
+
+## What a key may do
+
+A key carries scopes, written `action:resource`. Two actions, `read` and `write`; the resource is the one in the
+URL, or `*` for all of them:
+
+```
+read:*          write:*            everything, which is the default
+read:*                             lists and lookups, nothing that changes anything
+read:contacts   write:contacts     one resource, both ways
+```
+
+Choose them when you issue the key, in the dialog. They cannot be edited afterwards, on purpose: widening what
+something already running may do, without that thing being told, is how a key ends up with more reach than anyone
+remembers granting. Issue a second key and revoke the first.
+
+A call outside the scopes is refused with `403 FORBIDDEN` before any provider is reached, and the message says
+what the key can do. Keys issued before scopes existed carry none, which means everything.
+
+Two things worth knowing:
+
+- `passthrough` is its own resource, and it is the provider's whole API. A key that can reach it can reach
+  everything that provider exposes, whatever else you picked.
+- A scoped key handed to an agent gets a shorter MCP tool list rather than tools that fail. A read-only key sees
+  no `create_` tools at all, and its `passthrough` tool accepts only `GET`.
 
 ## 3. Connect an account
 
@@ -219,6 +245,7 @@ Every error carries a stable `code` and a `requestId`, also returned in the `X-R
 |---|---|---|
 | `UNAUTHORIZED` | Bad or revoked key, or a connection token that does not belong to the client | Check both headers |
 | `AMBIGUOUS_CONNECTION` | `X-Provider` named a service the client has more than one account on | Pick one from the `connections` array in the body and resend with `X-Account-Token` |
+| `FORBIDDEN` | The key is valid, but its scopes do not cover this call | Use a key with the right scope; the message says what this one can do |
 | `INVALID_REQUEST` | The body or parameters did not validate | Read `error`, fix the call |
 | `NOT_FOUND` | No such record on the provider | |
 | `NOT_SUPPORTED` | The provider lacks this operation | Check the capability matrix, branch in your code |

@@ -57,7 +57,7 @@ const ERROR_SCHEMA = {
       enum: [
         'UNAUTHORIZED', 'INVALID_REQUEST', 'NOT_FOUND', 'NOT_SUPPORTED',
         'RATE_LIMITED', 'TOKEN_EXPIRED', 'UPSTREAM_ERROR', 'UPSTREAM_TIMEOUT',
-        'CONFIG_ERROR', 'INTERNAL_ERROR', 'AMBIGUOUS_CONNECTION',
+        'CONFIG_ERROR', 'INTERNAL_ERROR', 'AMBIGUOUS_CONNECTION', 'FORBIDDEN',
       ],
     },
     requestId: { type: 'string', description: 'Echoed in the X-Request-Id header. Quote it in support requests.' },
@@ -113,6 +113,10 @@ const CONNECTION_SCHEMA = {
 
 const COMMON_ERRORS = {
   '401': { description: 'Missing or invalid credentials', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+  '403': {
+    description: 'The key is valid but its scopes do not cover this call.',
+    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+  },
   '429': { description: 'Rate limit exceeded', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
   '501': {
     description: 'The connected provider does not support this operation. Check the capability matrix.',
@@ -259,6 +263,12 @@ export const openApiSpec = {
       '`GET /connections` lists what this client has connected, with the service name, the connection token and the',
       'status of each. It takes the key alone, and a `409 AMBIGUOUS_CONNECTION` carries the same candidates in its',
       'body, so picking a connection never requires opening the dashboard.',
+      '',
+      '## What a key may do',
+      'A key carries scopes, written `action:resource`: `read:*`, `write:contacts`. A call outside them is refused',
+      'with `403 FORBIDDEN` before any provider is reached, and the message says what the key can do. Scopes are',
+      'chosen when the key is issued and never edited, so revoking and reissuing is the only way to widen one.',
+      'A key issued before scopes existed carries none, which means everything.',
       '',
       '## Pagination',
       'Responses carry `hasMore` and an opaque `nextCursor`. Pass the cursor back as `?cursor=`.',

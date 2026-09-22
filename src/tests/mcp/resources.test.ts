@@ -36,6 +36,7 @@ function contextFor(manifest: ProviderManifest): McpContext {
     requestId: 'req-1',
     clientName: 'LadiGroup',
     scope: 'connection',
+    keyScopes: [],
     connections: [
       {
         provider: { manifest } as unknown as UnifiedProvider,
