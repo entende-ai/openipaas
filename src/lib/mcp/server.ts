@@ -118,6 +118,22 @@ async function callTool(ctx: McpContext, params: Record<string, unknown> | undef
     };
   }
 
+  // The schema only offers updatedAfter where it works, but a model can send
+  // an argument it was not offered, and a provider that ignores a filter
+  // answers with everything. A full table returned as a delta is a wrong answer
+  // that looks right, so it is refused rather than passed on.
+  if (args.updatedAfter && binding.kind === 'resource') {
+    const incremental = connection.provider.manifest.incremental ?? [];
+    if (!binding.resource || !incremental.includes(binding.resource)) {
+      return {
+        payload: toolFailure(
+          `NOT_SUPPORTED: ${connection.label} cannot filter ${binding.resource ?? 'this resource'} by update time. ` +
+            `Read the whole list instead${incremental.length > 0 ? `, or use updatedAfter on: ${incremental.join(', ')}` : ''}.`
+        ),
+      };
+    }
+  }
+
   const method = (connection.provider as unknown as Record<string, unknown>)[binding.method];
   if (typeof method !== 'function') {
     return { payload: toolFailure(`${connection.label} declares ${name} but does not implement it.`) };

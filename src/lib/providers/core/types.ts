@@ -134,6 +134,15 @@ export interface ProviderManifest {
   /** Upstream limit we throttle ourselves to, per connected account. */
   rateLimit?: { requestsPerSecond: number; burst?: number };
   capabilities: CapabilityMap;
+  /**
+   * Resources whose list can be filtered by `updatedAfter`.
+   *
+   * Declared per provider and only after reading that provider's own
+   * documentation, because a filter the upstream ignores is worse than no
+   * filter: it answers with everything and the caller believes it is a delta.
+   * A resource not listed here answers 501 rather than pretending.
+   */
+  incremental?: readonly ResourceName[];
   /** Whether the raw upstream API is exposed through /passthrough. */
   passthrough: boolean;
   /**
@@ -197,7 +206,11 @@ export interface ListParams {
   cursor?: string;
   limit?: number;
   search?: string;
-  /** ISO-8601; providers that support it return only records changed since. */
+  /**
+   * ISO-8601 instant. Only records changed since come back, on the resources a
+   * provider declares as incremental. Refused with 501 anywhere else, so it is
+   * never silently dropped.
+   */
   updatedAfter?: string;
   /** Anything else is forwarded to the upstream API untouched. */
   [key: string]: unknown;

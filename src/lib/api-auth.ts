@@ -11,9 +11,9 @@ import { consume, DEFAULT_LIMIT, DEFAULT_WINDOW_MS } from './api-rate-limit';
 import * as idempotency from './idempotency';
 import { createProvider, isKnownProvider } from './providers/core/registry';
 import { findManifest } from './providers/core/manifests';
-import { actionForMethod, allows, describeScopes, parseScopes, resourceForPath } from './scopes';
+import { actionForMethod, allows, describeScopes, parseScopes, resourceForPath, type ScopeResource } from './scopes';
 import { ProviderError, isProviderError } from './providers/core/errors';
-import type { ListParams, ProviderContext, UnifiedProvider } from './providers/core/types';
+import type { ListParams, ProviderContext, ResourceName, UnifiedProvider } from './providers/core/types';
 
 export interface UnifiedAuthContext {
   requestId: string;
@@ -227,7 +227,15 @@ export function withUnifiedAuth<P = Record<string, string>>(
         );
       }
 
-      /* -------------------------------------------------- 5. body + idempotency */
+      /* -------------------------------------------------- 5. incremental reads */
+
+      const updatedAfter = url.searchParams.get('updatedAfter');
+      if (updatedAfter !== null && req.method === 'GET') {
+        const refusal = checkUpdatedAfter(updatedAfter, linkedAccount.provider, resource, requestId);
+        if (refusal) return finish(refusal.response, refusal.code);
+      }
+
+      /* -------------------------------------------------- 6. body + idempotency */
 
       let body: any = null;
       if (WRITE_METHODS.has(req.method)) {
@@ -267,7 +275,7 @@ export function withUnifiedAuth<P = Record<string, string>>(
         }
       }
 
-      /* -------------------------------------------------- 6. dispatch */
+      /* -------------------------------------------------- 7. dispatch */
 
       const provider = createProvider(linkedAccount.provider, { refreshCredential });
       const credentials = toProviderContext(credential, linkedAccount.provider);
@@ -308,6 +316,45 @@ export function withUnifiedAuth<P = Record<string, string>>(
       return finish(response, code);
     }
   };
+}
+
+/**
+ * Reading only what changed, or saying plainly that this one cannot.
+ *
+ * A provider that ignores an unknown filter answers with everything, and a
+ * caller that believes it asked for a delta will treat a full table as one.
+ * That is a silent, expensive wrong answer, so a resource whose provider does
+ * not document the filter is refused instead.
+ */
+function checkUpdatedAfter(
+  value: string,
+  providerSlug: string,
+  resource: ScopeResource | null,
+  requestId: string
+): { response: NextResponse; code: string } | null {
+  const refuse = (status: number, code: string, error: string) => ({
+    response: NextResponse.json({ error, code, requestId }, { status }),
+    code,
+  });
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return refuse(400, 'INVALID_REQUEST', 'updatedAfter must be an ISO-8601 instant, as in 2026-09-01T00:00:00Z.');
+  }
+
+  const manifest = findManifest(providerSlug);
+  const supported = manifest?.incremental ?? [];
+
+  if (!resource || !supported.includes(resource as ResourceName)) {
+    return refuse(
+      501,
+      'NOT_SUPPORTED',
+      `${manifest?.name ?? providerSlug} cannot filter ${resource ?? 'this resource'} by update time. ` +
+        `Page the whole list instead${supported.length > 0 ? `, or use updatedAfter on: ${supported.join(', ')}` : ''}.`
+    );
+  }
+
+  return null;
 }
 
 /**

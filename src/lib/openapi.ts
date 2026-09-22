@@ -106,6 +106,11 @@ const CONNECTION_SCHEMA = {
     connectedAt: { type: 'string', format: 'date-time' },
     lastUsedAt: { type: ['string', 'null'], format: 'date-time', description: 'Last request that reached it.' },
     capabilities: { type: 'object', description: 'Resource to operations, the same shape /providers returns.' },
+    incremental: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Resources whose list accepts updatedAfter on this service.',
+    },
     passthrough: { type: 'boolean' },
   },
   required: ['id', 'label', 'service', 'serviceName', 'status', 'connectionToken', 'connectedAt'],
@@ -128,6 +133,13 @@ const LIST_PARAMS = [
   { name: 'cursor', in: 'query', schema: { type: 'string' }, description: 'Cursor from a previous response.' },
   { name: 'limit', in: 'query', schema: { type: 'integer', maximum: 200 }, description: 'Page size (max 200).' },
   { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Free-text search, where the provider supports it.' },
+  {
+    name: 'updatedAfter',
+    in: 'query',
+    schema: { type: 'string', format: 'date-time' },
+    description:
+      'ISO-8601 instant. Only records changed since then. Answered with 501 on a resource whose provider does not document the filter, never ignored. GET /providers lists which resources accept it.',
+  },
 ];
 
 const ID_PARAM = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
@@ -273,6 +285,12 @@ export const openApiSpec = {
       '## Pagination',
       'Responses carry `hasMore` and an opaque `nextCursor`. Pass the cursor back as `?cursor=`.',
       '`totalItems` is best-effort: providers with cursor-based APIs cannot report a total.',
+      '',
+      '## Reading only what changed',
+      'List endpoints take `updatedAfter`, an ISO-8601 instant, on the resources a provider documents a filter for.',
+      'Anywhere else it answers `501 NOT_SUPPORTED` rather than being ignored: a provider that drops an unknown',
+      'filter answers with its whole table, and a caller expecting a delta cannot tell. `GET /providers` and',
+      '`GET /connections` both carry an `incremental` list saying where it works.',
       '',
       '## Idempotency',
       'Send `Idempotency-Key` on writes. Retrying with the same key replays the original response;',

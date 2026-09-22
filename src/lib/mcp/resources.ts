@@ -129,6 +129,7 @@ function contractSection(): string[] {
     '- A list tool answers with `items`, `hasMore` and `nextCursor`. To continue, pass `nextCursor` back as `cursor`.',
     '- `totalItems` is **absent**, not null, on providers that cannot count a result set. Never treat its absence as zero, and rely on `hasMore` to decide whether to keep going.',
     '- `limit` is capped at 200. Asking for more is not an error and does not get you more.',
+    '- Where a list tool takes `updatedAfter`, it is an ISO-8601 instant and only records changed since then come back. That is how you follow up on a list you already have. A tool without that argument cannot do it: its provider does not offer the filter, and sending it anyway is refused rather than quietly ignored.',
     '- A `get` tool takes the `id` a list returned. Ids belong to the provider, and they are stable.',
     '',
     '## Writing',
