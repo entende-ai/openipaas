@@ -90,7 +90,7 @@ known secrets, none of which belong on a server.
 | `NEXT_PUBLIC_APP_URL` | yes | The public URL. Builds the OAuth redirect URI |
 | `CREDENTIALS_ENCRYPTION_KEY` | yes | 32 bytes, base64 or hex |
 | `DASHBOARD_PASSWORD` | yes | The operator secret: creates the first account and resets forgotten passwords. Not how people sign in |
-| `DASHBOARD_SESSION_SECRET` | yes | Changing it logs everyone out, which is how you revoke sessions |
+| `DASHBOARD_SESSION_SECRET` | yes | Signs session cookies and hosted connect links. Changing it logs everyone out and voids every outstanding connect link |
 | `INTERNAL_JOB_SECRET` | yes | Authorizes the webhook delivery job |
 | `REDIS_URL` | for >1 instance | Without it, rate limiting and idempotency are per process |
 | `API_RATE_LIMIT_PER_MINUTE` | no | Per client. Defaults to 600 |

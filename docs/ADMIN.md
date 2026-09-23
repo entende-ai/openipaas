@@ -5,6 +5,7 @@ that "a new company signed up" can be a step in your own product.
 
 - [The credential](#the-credential)
 - [Provisioning a company](#provisioning-a-company)
+- [Connecting an account for a customer](#connecting-an-account-for-a-customer)
 - [Endpoints](#endpoints)
 - [What it cannot do](#what-it-cannot-do)
 
@@ -56,6 +57,86 @@ One client per company, one company per client. The client is the boundary the w
 reaches its own client's connections and nothing else, so two companies sharing one client would put the boundary
 back in your code, where it has to be maintained.
 
+## Connecting an account for a customer
+
+Provisioning gets you a client with no connections. Filling it used to mean somebody opening this console,
+finding the company in a list of every company in the deployment, and finishing the provider's consent screen
+themselves. That is fine for one customer and impossible for a hundred, and it is not something you can ask an
+end customer to do: the console is yours, and what they would see there is everyone else's business.
+
+A **connect session** is a one-time link you create for one of your customers. They open it, approve their own
+provider account, and never see anything of this platform but one screen that can be made to look like yours.
+
+```bash
+curl -s -X POST "$BASE/clients/$CLIENT/connect-sessions" -H "$ADMIN" -H 'Content-Type: application/json' -d '{
+  "provider": "RD_STATION_CRM",
+  "redirectUrl": "https://your-app.com/settings/integrations/done",
+  "origins": ["https://your-app.com"],
+  "label": "Your Product",
+  "logoUrl": "https://your-app.com/logo.svg",
+  "accentColor": "#2563eb"
+}'
+```
+
+```json
+{
+  "id": "aae7031f-...",
+  "token": "eyJzaWQiOiJ...",
+  "url": "https://app.openipaas.com/connect/eyJzaWQiOiJ...",
+  "expiresAt": "2026-09-23T01:37:47.242Z",
+  "expiresInSeconds": 1800,
+  "frameableBy": ["https://your-app.com"]
+}
+```
+
+Every field but the client is optional:
+
+| Field | What it does |
+|---|---|
+| `provider` | Pins one service, so the page opens straight into it. Left out, the customer picks from what this deployment supports |
+| `redirectUrl` | Where the browser goes when it is over, with `status`, `session` and, on success, `connection` in the query |
+| `origins` | The only origins allowed to frame the page and receive its messages. Required if you embed it |
+| `label`, `logoUrl`, `accentColor` | Your product's name, mark and button colour on the page |
+
+### Showing it
+
+Three ways, in the order they are worth trying:
+
+- **In an iframe**, at `url`, when `origins` names your own origin. The customer never leaves your settings page.
+- **In a new tab or a popup**, at `url`, which needs no `origins` at all.
+- **In an email or a message**, when the person who has the provider account is not the person configuring your
+  product. This is common, and is the reason the link stands on its own.
+
+However it is shown, the page posts a message to each origin you named when it finishes:
+
+```js
+window.addEventListener('message', (event) => {
+  if (event.origin !== 'https://app.openipaas.com') return
+  if (event.data?.type !== 'openipaas:connect') return
+  // event.data.status is connected, cancelled, failed or used
+  // event.data.connection is the connection id, on success
+})
+```
+
+Do not rely on the message alone. A browser that blocks third-party frames, an in-app webview, or a customer who
+finishes the link on their phone will never deliver it. `redirectUrl` covers the second case and the webhook
+covers all of them: a client with an endpoint registered gets `connection.connected` with the same connection id,
+which is the only report that does not depend on a browser still being open.
+
+### What the link can and cannot do
+
+- It is **single use**. The second submission on the same link is refused, and two tabs racing produce one
+  connection, not two.
+- It **expires in 30 minutes**. Create it when the customer clicks, not when the page loads.
+- It is the **authority to attach an account to exactly one client**, and to nothing else. It reads no data,
+  reaches no other client, and cannot be pointed at a service the session did not name.
+- It is **stored hashed**, so a copy of the database is not a set of live links.
+- It is **frameable only by the origins you named**, through a per-session `frame-ancestors`. Name none and it
+  cannot be framed at all.
+
+Because the link is the whole authority, treat it like a password reset link: send it to the customer, not
+through a third party, and create a new one rather than reusing an old one.
+
 ## Endpoints
 
 | Method | Path | What it does |
@@ -70,6 +151,9 @@ back in your code, where it has to be maintained.
 | `DELETE` | `/keys/{id}` | Revokes. Revoking an already revoked key is not an error |
 | `GET` | `/clients/{id}/webhooks` | Its endpoints |
 | `POST` | `/clients/{id}/webhooks` | Registers one. `{ "url": "https://...", "events": [...] }`. Answers with the signing secret, once |
+| `GET` | `/clients/{id}/connect-sessions` | The last 50 links handed out for this client, without their tokens |
+| `POST` | `/clients/{id}/connect-sessions` | Creates one. Answers with the link, once |
+| `GET` | `/connect-sessions/{id}` | One link: whether it was used, when, and which connection it produced |
 
 `rateLimit` is that key budget in requests per minute, inside its client budget. Leave it out for the platform
 default, or set a small one for a caller that walks every page so it cannot starve the others on the same client.
@@ -89,7 +173,9 @@ neither does, depending on the order, and whichever order you pick will sometime
 - **Delete a client.** That would take its keys, connections and request history with it, and a program that can do
   that by accident is a program that eventually will. Revoke the keys here; let a person finish the job in the
   dashboard.
-- **Connect a provider account.** Connecting is an OAuth consent or a set of provider credentials, which belongs to
-  the customer, not to your backend.
+- **Connect a provider account itself.** Connecting is an OAuth consent or a set of provider credentials, which
+  belongs to the customer, not to your backend. What it can do is hand that customer a link, which is the whole
+  point of [connect sessions](#connecting-an-account-for-a-customer): your backend never holds their credentials,
+  and never needs to.
 - **Reach an agent.** The MCP server is built from a client's key and never sees an admin key, so nothing here is
   exposed as a tool.

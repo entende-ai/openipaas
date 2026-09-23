@@ -17,6 +17,7 @@ Enterprise-grade integrations shouldn't be locked behind closed-source paywalls.
 - 🔌 **Plugin architecture**: a provider is one folder plus one line in the registry. The core never changes.
 - 🔁 **Resilient by default**: per account rate limiting, retry with exponential backoff, and refresh-and-replay on expired credentials, for every provider.
 - 🔓 **Never blocked**: `/passthrough` exposes the raw provider API with credentials handled, so a missing unified field never stops you.
+- 🤝 **Your customers connect themselves**: a hosted, embeddable connect page your product brands and links to, so onboarding an account is one link rather than a support call.
 
 ## 🛠 Architecture
 
@@ -129,6 +130,8 @@ Pass `nextCursor` back as `?cursor=`. `totalItems` is best effort, because curso
 **Webhooks**: a client is told when one of its connections is made, breaks or is removed. Deliveries are signed and retried. See the [integration guide](docs/INTEGRATION.md#being-told-when-a-connection-breaks).
 
 **Admin API**: creating clients, issuing and rotating their keys, and registering their webhook endpoints, from your own product rather than from the dashboard. See [docs/ADMIN.md](docs/ADMIN.md).
+
+**Hosted connect**: hand an end customer a one-time link and let them authorize their own provider account, in an iframe inside your product, in a popup, or from an email. They never see this dashboard, the link can attach an account to exactly one client, and your backend never holds their credentials. See [docs/ADMIN.md](docs/ADMIN.md#connecting-an-account-for-a-customer).
 
 **Passthrough**, for anything the unified model does not cover:
 

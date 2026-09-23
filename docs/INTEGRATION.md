@@ -6,6 +6,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [1. Create a client](#1-create-a-client)
 - [2. Issue an API key](#2-issue-an-api-key)
 - [3. Connect an account](#3-connect-an-account)
+  - [When the account is your customer's, not yours](#when-the-account-is-your-customers-not-yours)
 - [What a key may do](#what-a-key-may-do)
 - [Service names](#service-names)
 - [What a client has connected](#what-a-client-has-connected)
@@ -89,6 +90,20 @@ Dashboard, **Connections**, **Connect**. Pick the provider and the client, then 
 For OAuth providers such as RD Station CRM, the browser goes to the provider, you approve, and the callback returns with the connection stored. Access and refresh tokens are encrypted at rest; refreshes happen automatically and, for providers that rotate refresh tokens on use, are serialized per credential so two concurrent calls cannot invalidate each other.
 
 The connection shows its **service name** (`RD_STATION_CRM`), which is what `X-Provider` takes, and its **connection token**, which is the `X-Account-Token` value when you need to pin this exact account.
+
+### When the account is your customer's, not yours
+
+The dashboard is fine while you are connecting accounts you control. It does not work for a product whose customers each bring their own: you would be asking them to use your console, where they can see every other company in it.
+
+For that, ask the admin API for a **connect session** and hand your customer the link it answers with:
+
+```bash
+curl -s -X POST "https://app.openipaas.com/api/admin/v1/clients/$CLIENT/connect-sessions" \
+  -H "Authorization: Bearer $OPENIPAAS_ADMIN_KEY" -H 'Content-Type: application/json' \
+  -d '{"provider":"RD_STATION_CRM","origins":["https://your-app.com"],"label":"Your Product"}'
+```
+
+They open it in an iframe inside your settings page, in a popup, or from an email, approve their own account, and the connection appears under that client. The link is single use, expires in 30 minutes, and can attach an account to that one client and nothing else. The full shape is in the [admin guide](ADMIN.md#connecting-an-account-for-a-customer).
 
 ## Service names
 
