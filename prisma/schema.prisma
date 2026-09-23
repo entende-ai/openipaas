@@ -221,7 +221,7 @@ model ConnectSession {
   /// Where to send the browser when it is over.
   redirectUrl     String?
   /// Origins allowed to frame the page and to receive its messages.
-  origins         String[]
+  origins         String[]  @default([])
   /// What the page calls the company the customer is connecting for.
   label           String?
   logoUrl         String?
