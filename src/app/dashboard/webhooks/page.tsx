@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/dashboard/PageHeader'
 import { currentUser } from '@/lib/auth-session'
 import { canDestroy } from '@/lib/dashboard/roles'
 import { EVENT_DESCRIPTIONS, EVENT_TYPES } from '@/lib/webhooks'
+import { currentWorkspace, scopeTo } from '@/lib/dashboard/workspace'
 import { AddEndpointDialog } from './components/AddEndpointDialog'
 import { EndpointActions } from './components/EndpointActions'
 
@@ -21,9 +22,12 @@ export default async function WebhooksPage() {
   const me = await currentUser()
   const mayDelete = canDestroy(me?.role)
 
+  const workspace = await currentWorkspace()
+
   const [clients, endpoints] = await Promise.all([
-    prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    Promise.resolve(workspace.clients),
     prisma.webhookEndpoint.findMany({
+      where: scopeTo(workspace.clientId),
       include: {
         client: { select: { name: true } },
         deliveries: {
@@ -40,9 +44,13 @@ export default async function WebhooksPage() {
     <div className="space-y-6">
       <PageHeader
         title="Webhooks"
-        description="A client is told when one of its connections is made, breaks, or is removed. Every delivery is signed, and a failed one is retried for about half a day."
+        description={
+          workspace.name
+            ? `Where ${workspace.name} is told when one of its connections is made, breaks, or is removed. Every delivery is signed, and a failed one is retried for about half a day.`
+            : 'A client is told when one of its connections is made, breaks, or is removed. Every delivery is signed, and a failed one is retried for about half a day.'
+        }
       >
-        <AddEndpointDialog clients={clients} />
+        <AddEndpointDialog clients={clients} defaultClientId={workspace.clientId} />
       </PageHeader>
 
       <Card>

@@ -57,13 +57,16 @@ export async function listRecentRequests(query: LogQuery = {}) {
 }
 
 /** Rolling counters for the dashboard header. */
-export async function requestStats(sinceMs = 24 * 60 * 60 * 1000) {
+export async function requestStats(sinceMs = 24 * 60 * 60 * 1000, clientId: string | null = null) {
   const since = new Date(Date.now() - sinceMs);
+  // Counted over the client the console is looking at, so the number on the
+  // page and the rows under it are about the same thing.
+  const scope = { createdAt: { gte: since }, ...(clientId ? { clientId } : {}) };
 
   const [total, failed, latency] = await Promise.all([
-    prisma.requestLog.count({ where: { createdAt: { gte: since } } }),
-    prisma.requestLog.count({ where: { createdAt: { gte: since }, status: { gte: 400 } } }),
-    prisma.requestLog.aggregate({ where: { createdAt: { gte: since } }, _avg: { latencyMs: true } }),
+    prisma.requestLog.count({ where: scope }),
+    prisma.requestLog.count({ where: { ...scope, status: { gte: 400 } } }),
+    prisma.requestLog.aggregate({ where: scope, _avg: { latencyMs: true } }),
   ]);
 
   return {

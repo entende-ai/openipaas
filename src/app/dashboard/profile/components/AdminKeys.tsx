@@ -20,11 +20,12 @@ export interface AdminKeyRow {
 /**
  * The credential that creates clients.
  *
- * Kept on this page, above the clients it creates, because it is the only key
- * here that is not one client's, and the difference matters: leaking it is not
- * one company's problem.
+ * Behind the account rather than beside the client keys: it is the only key in
+ * this console that is not one client's, and a screen that shows both teaches
+ * that they are the same kind of thing. Leaking a client key is one company's
+ * problem; leaking this one is everybody's.
  */
-export function AdminKeys({ keys, mayManage }: { keys: AdminKeyRow[]; mayManage: boolean }) {
+export function AdminKeys({ keys }: { keys: AdminKeyRow[] }) {
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
   const [issued, setIssued] = useState<string | null>(null)
@@ -51,11 +52,9 @@ export function AdminKeys({ keys, mayManage }: { keys: AdminKeyRow[]; mayManage:
             needed.
           </CardDescription>
         </div>
-        {mayManage && (
-          <Button variant="outline" size="sm" onClick={() => setNaming(true)}>
-            Issue admin key
-          </Button>
-        )}
+        <Button variant="outline" size="sm" onClick={() => setNaming(true)}>
+          Issue admin key
+        </Button>
       </CardHeader>
 
       <CardContent>
@@ -81,16 +80,14 @@ export function AdminKeys({ keys, mayManage }: { keys: AdminKeyRow[]; mayManage:
 
                 <div className="flex items-center gap-2">
                   <Badge variant={key.lastUsedAt ? 'default' : 'secondary'}>{key.lastUsedAt ? 'In use' : 'Unused'}</Badge>
-                  {mayManage && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => startTransition(() => void revokeAdminKey(key.id))}
-                    >
-                      Revoke
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => startTransition(() => void revokeAdminKey(key.id))}
+                  >
+                    Revoke
+                  </Button>
                 </div>
               </div>
             ))}

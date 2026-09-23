@@ -16,7 +16,14 @@ import { addWebhookEndpoint } from '@/app/actions/webhooks'
  * a receiver is trusting whoever found the URL, and this is the only moment the
  * secret exists in the clear.
  */
-export function AddEndpointDialog({ clients }: { clients: { id: string; name: string }[] }) {
+export function AddEndpointDialog({
+  clients,
+  defaultClientId,
+}: {
+  clients: { id: string; name: string }[]
+  /** The client the console is looking at, preselected. */
+  defaultClientId?: string | null
+}) {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +68,7 @@ export function AddEndpointDialog({ clients }: { clients: { id: string; name: st
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="webhook-client">Client</Label>
-              <Select name="clientId" items={clientLabels} defaultValue={clients[0]?.id}>
+              <Select name="clientId" items={clientLabels} defaultValue={defaultClientId ?? clients[0]?.id}>
                 <SelectTrigger id="webhook-client" className="w-full">
                   <SelectValue />
                 </SelectTrigger>

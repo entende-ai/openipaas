@@ -27,9 +27,12 @@ export interface ConnectableProvider {
 export function ConnectErpDialog({
   clients,
   providers,
+  defaultClientId,
 }: {
   clients: { id: string; name: string }[]
   providers: ConnectableProvider[]
+  /** The client the console is looking at, preselected so it is not asked twice. */
+  defaultClientId?: string | null
 }) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -97,7 +100,7 @@ export function ConnectErpDialog({
             <Label htmlFor="clientId">Client</Label>
             {/* `items` is what makes the trigger read "Ladigroup" instead of the
                 uuid it posts. Without it Base UI shows the raw value. */}
-            <Select name="clientId" items={clientLabels}>
+            <Select name="clientId" items={clientLabels} defaultValue={defaultClientId ?? undefined}>
               <SelectTrigger id="clientId">
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>

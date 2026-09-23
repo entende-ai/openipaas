@@ -16,6 +16,7 @@ import { canDestroy, canRevealAccountToken } from '@/lib/dashboard/roles'
 import { PageHeader } from '@/components/dashboard/PageHeader'
 import { clientScopePrefixes } from '@/lib/mcp/connections'
 import { isKnownProvider } from '@/lib/providers/core/registry'
+import { currentWorkspace, scopeTo } from '@/lib/dashboard/workspace'
 
 // Reads live data behind an authenticated session, so it must never be
 // prerendered at build time.
@@ -38,13 +39,14 @@ export default async function LinkedAccountsPage() {
   // The agent connects to this deployment, so the snippets have to name it.
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').trim()
 
-  const [accounts, clients] = await Promise.all([
-    prisma.linkedAccount.findMany({
-      include: { client: true, credentials: { select: { createdAt: true, expiresAt: true, refreshToken: true } } },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-  ])
+  const workspace = await currentWorkspace()
+  const clients = workspace.clients
+
+  const accounts = await prisma.linkedAccount.findMany({
+    where: scopeTo(workspace.clientId),
+    include: { client: true, credentials: { select: { createdAt: true, expiresAt: true, refreshToken: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
 
   // The prefix an agent sees depends on the other connections of the same
   // client, so it is computed per client, over the same set the server accepts.
@@ -79,9 +81,13 @@ export default async function LinkedAccountsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Connections"
-        description="A client plus a provider account. The API key says which client; the service name, or the connection token when a client has two accounts on one service, says which system."
+        description={
+          workspace.name
+            ? `What ${workspace.name} has connected. The API key says which client; the service name, or the connection token when a client has two accounts on one service, says which system.`
+            : 'A client plus a provider account. The API key says which client; the service name, or the connection token when a client has two accounts on one service, says which system.'
+        }
       >
-        <ConnectErpDialog clients={clients} providers={providers} />
+        <ConnectErpDialog clients={clients} providers={providers} defaultClientId={workspace.clientId} />
       </PageHeader>
 
       {clients.length === 0 && (
@@ -98,7 +104,7 @@ export default async function LinkedAccountsPage() {
       {accounts.length === 0 && clients.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>No connections yet</CardTitle>
+            <CardTitle>{workspace.name ? `${workspace.name} has no connections yet` : 'No connections yet'}</CardTitle>
             <CardDescription>
               Connecting an account is what gives a client access to a provider. OAuth providers open their own consent
               screen; key-based providers ask for the fields their manifest declares.
