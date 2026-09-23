@@ -61,6 +61,7 @@ model Client {
   requestLogs      RequestLog[]
   idempotencyKeys  IdempotencyKey[]
   webhookEndpoints WebhookEndpoint[]
+  connectSessions  ConnectSession[]
 }
 
 model ApiKey {
@@ -192,12 +193,47 @@ model OAuthState {
   clientId     String
   provider     String
   redirectUri  String
+  /// Set when the flow was started from an embedded connect session, so the
+  /// callback knows to finish that session instead of returning to the console.
+  connectSessionId String?
   // PKCE verifier for providers that support it.
   codeVerifier String?
   expiresAt    DateTime
   consumedAt   DateTime?
   createdAt    DateTime  @default(now())
 
+  @@index([expiresAt])
+}
+
+/// A one-time invitation to connect an account, handed to an end customer.
+///
+/// The product that owns the client creates one, sends its customer to the
+/// hosted page, and never has to show them this console. The token in the URL
+/// is the authority to attach an account to exactly one client, which is why it
+/// is short lived, single use, and stored as a hash.
+model ConnectSession {
+  id              String    @id @default(uuid())
+  clientId        String
+  /// SHA-256 of the token. The token itself exists only in the URL.
+  tokenHash       String    @unique
+  /// Pins one service. Null lets the customer pick from what is enabled.
+  provider        String?
+  /// Where to send the browser when it is over.
+  redirectUrl     String?
+  /// Origins allowed to frame the page and to receive its messages.
+  origins         String[]
+  /// What the page calls the company the customer is connecting for.
+  label           String?
+  logoUrl         String?
+  accentColor     String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  linkedAccountId String?
+  createdAt       DateTime  @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
   @@index([expiresAt])
 }
 

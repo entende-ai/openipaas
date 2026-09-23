@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ConnectErpDialog } from './components/ConnectErpDialog'
+import { InviteConnectDialog } from './components/InviteConnectDialog'
 import { CopyTokenButton } from './components/CopyTokenButton'
 import { PlaygroundDialog } from './components/PlaygroundDialog'
 import { McpSetupDialog } from '@/components/dashboard/McpSetupDialog'
@@ -87,6 +88,7 @@ export default async function LinkedAccountsPage() {
             : 'A client plus a provider account. The API key says which client; the service name, or the connection token when a client has two accounts on one service, says which system.'
         }
       >
+        <InviteConnectDialog clients={clients} providers={providers} defaultClientId={workspace.clientId} />
         <ConnectErpDialog clients={clients} providers={providers} defaultClientId={workspace.clientId} />
       </PageHeader>
 

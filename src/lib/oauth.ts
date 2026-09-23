@@ -33,6 +33,8 @@ function base64url(buffer: Buffer): string {
 export async function beginOAuthFlow(params: {
   providerSlug: string;
   clientId: string;
+  /** Set when an end customer started this from a hosted connect link. */
+  connectSessionId?: string | null;
 }): Promise<{ authorizationUrl: string; state: string }> {
   const manifest = getManifest(params.providerSlug);
 
@@ -58,6 +60,7 @@ export async function beginOAuthFlow(params: {
       provider: manifest.slug,
       redirectUri,
       codeVerifier,
+      connectSessionId: params.connectSessionId ?? null,
       expiresAt: new Date(Date.now() + STATE_TTL_MS),
     },
   });
@@ -82,11 +85,29 @@ export async function beginOAuthFlow(params: {
   return { authorizationUrl: url.toString(), state };
 }
 
+/**
+ * Which hosted session a state belongs to, without burning it.
+ *
+ * The callback needs this before it knows whether the flow succeeded: a
+ * customer who pressed cancel on the provider must land back on the page that
+ * sent them, not on our sign-in screen.
+ */
+export async function connectSessionIdForState(state: string): Promise<string | null> {
+  const record = await prisma.oAuthState.findUnique({
+    where: { state },
+    select: { connectSessionId: true },
+  });
+
+  return record?.connectSessionId ?? null;
+}
+
 export interface ConsumedState {
   clientId: string;
   provider: string;
   redirectUri: string;
   codeVerifier: string | null;
+  /** The hosted connect session this flow belongs to, if any. */
+  connectSessionId: string | null;
 }
 
 /**
@@ -110,6 +131,7 @@ export async function consumeOAuthState(state: string, providerSlug: string): Pr
     provider: record.provider,
     redirectUri: record.redirectUri,
     codeVerifier: record.codeVerifier,
+    connectSessionId: record.connectSessionId,
   };
 }
 

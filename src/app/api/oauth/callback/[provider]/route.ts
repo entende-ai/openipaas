@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { appUrl, consumeOAuthState, exchangeCodeForTokens, slugFromCallbackSegment } from '@/lib/oauth'
+import {
+  appUrl,
+  connectSessionIdForState,
+  consumeOAuthState,
+  exchangeCodeForTokens,
+  slugFromCallbackSegment,
+} from '@/lib/oauth'
 import { persistNewCredential } from '@/lib/token-refresh'
 import { emitConnectionEvent } from '@/lib/webhooks'
+import { completeConnectSession } from '@/lib/connect-session'
 import { getManifest, isKnownProvider } from '@/lib/providers/core/registry'
 import { isProviderError } from '@/lib/providers/core/errors'
 
@@ -17,8 +24,19 @@ export async function GET(request: Request, ctx: { params: Promise<{ provider: s
   const slug = slugFromCallbackSegment(segment)
   const url = new URL(request.url)
 
-  const failure = (message: string) =>
-    NextResponse.redirect(`${appUrl()}/dashboard/linked-accounts?error=${encodeURIComponent(message)}`)
+  const state = url.searchParams.get('state')
+
+  // Whoever started this decides where a failure lands. An end customer who
+  // pressed cancel must go back to the page that sent them, never to a console
+  // sign-in screen they have no account for.
+  const connectSessionId = state ? await connectSessionIdForState(state) : null
+
+  const failure = (message: string, outcome: 'failed' | 'cancelled' = 'failed') =>
+    connectSessionId
+      ? NextResponse.redirect(
+          `${appUrl()}/connect/done?session=${encodeURIComponent(connectSessionId)}&status=${outcome}`
+        )
+      : NextResponse.redirect(`${appUrl()}/dashboard/linked-accounts?error=${encodeURIComponent(message)}`)
 
   if (!isKnownProvider(slug)) {
     return failure('Unknown provider')
@@ -28,11 +46,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ provider: s
   const oauthError = url.searchParams.get('error')
   if (oauthError) {
     console.warn(`[OAuth] ${slug} returned error=${oauthError}`)
-    return failure('The connection was cancelled')
+    return failure('The connection was cancelled', 'cancelled')
   }
 
   const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
   if (!code || !state) {
     return failure('Missing authorization parameters')
   }
@@ -67,6 +84,19 @@ export async function GET(request: Request, ctx: { params: Promise<{ provider: s
     // Also the event a subscriber gets when a broken connection is fixed: the
     // account it was told had expired is working again.
     await emitConnectionEvent({ eventType: 'connection.connected', linkedAccountId: linkedAccount.id })
+
+    // A flow that started from a hosted connect link ends on the hosted page,
+    // which knows how to tell the product that sent the customer. Sending it to
+    // the console instead would drop an end customer into our dashboard.
+    if (verified.connectSessionId) {
+      const finished = await completeConnectSession(verified.connectSessionId, linkedAccount.id)
+
+      return NextResponse.redirect(
+        `${appUrl()}/connect/done?session=${encodeURIComponent(verified.connectSessionId)}&status=${
+          finished ? 'connected' : 'used'
+        }`
+      )
+    }
 
     return NextResponse.redirect(`${appUrl()}/dashboard/linked-accounts?connected=${encodeURIComponent(manifest.name)}`)
   } catch (error) {
