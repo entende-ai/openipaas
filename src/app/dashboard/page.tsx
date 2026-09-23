@@ -10,6 +10,7 @@ import { onboardingComplete, onboardingSteps } from '@/lib/dashboard/onboarding'
 import { findManifest } from '@/lib/providers/core/manifests'
 import { pickActiveCredential } from '@/lib/credentials'
 import { PageHeader } from '@/components/dashboard/PageHeader'
+import { currentWorkspace, scopeTo } from '@/lib/dashboard/workspace'
 
 /**
  * Where the console opens.
@@ -21,15 +22,21 @@ import { PageHeader } from '@/components/dashboard/PageHeader'
 export const dynamic = 'force-dynamic'
 
 export default async function OverviewPage() {
+  const workspace = await currentWorkspace()
+  const scope = scopeTo(workspace.clientId)
+
   const [clients, activeKeys, accounts, stats, recent] = await Promise.all([
+    // The onboarding steps ask whether a client exists at all, which is about
+    // the deployment rather than about the selection.
     prisma.client.count(),
-    prisma.apiKey.count({ where: { revokedAt: null } }),
+    prisma.apiKey.count({ where: { revokedAt: null, ...scope } }),
     prisma.linkedAccount.findMany({
+      where: scope,
       include: { client: true, credentials: { select: { createdAt: true, expiresAt: true, refreshToken: true } } },
       orderBy: { createdAt: 'desc' },
     }),
-    requestStats(),
-    listRecentRequests({ limit: 5 }),
+    requestStats(undefined, workspace.clientId),
+    listRecentRequests({ limit: 5, clientId: workspace.clientId ?? undefined }),
   ])
 
   const steps = onboardingSteps({
@@ -55,7 +62,14 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Overview" description="One API over many business systems. Here is the state of yours." />
+      <PageHeader
+        title="Overview"
+        description={
+          workspace.name
+            ? `One API over many business systems. Here is the state of ${workspace.name}.`
+            : 'One API over many business systems. Here is the state of yours.'
+        }
+      />
 
       {!onboardingComplete(steps) && (
         <Card>

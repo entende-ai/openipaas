@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 import { AddAccountForm } from './components/AddAccountForm'
 import { AccountActions } from './components/AccountActions'
-import { ChangePasswordForm } from './components/ChangePasswordForm'
 import { PageHeader } from '@/components/dashboard/PageHeader'
 
 export const dynamic = 'force-dynamic'
@@ -94,15 +93,6 @@ export default async function TeamPage() {
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Your password</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChangePasswordForm />
-        </CardContent>
-      </Card>
     </div>
   )
 }

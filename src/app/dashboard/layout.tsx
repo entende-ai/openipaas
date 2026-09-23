@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
 import { MobileNav } from '@/components/MobileNav'
 import { currentUser } from '@/lib/auth-session'
+import { currentWorkspace } from '@/lib/dashboard/workspace'
+import { ClientSwitcher } from '@/components/dashboard/ClientSwitcher'
 import { SignOutButton } from './components/SignOutButton'
 
 // Reads the signed-in account, so it must never be prerendered at build time.
@@ -22,9 +24,15 @@ export default async function DashboardLayout({
   const user = await currentUser()
   if (!user) redirect('/login')
 
+  const workspace = await currentWorkspace()
+
   return (
     <div className="dark flex min-h-screen w-full bg-background">
-      <Sidebar />
+      <Sidebar
+        clients={workspace.clients}
+        selectedClientId={workspace.clientId}
+        user={{ name: user.name, email: user.email, role: user.role }}
+      />
 
       <div className="flex w-full flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/10 px-4 md:px-6 lg:h-[60px]">
@@ -34,8 +42,15 @@ export default async function DashboardLayout({
             <span className="text-sm font-semibold tracking-tight">Open IpaaS</span>
           </div>
 
+          {/* Narrow screens have no sidebar, so the switcher and the account
+              come here instead of disappearing. */}
           <div className="ml-auto flex items-center gap-3">
-            <span className="hidden text-xs text-muted-foreground sm:inline">{user.name || user.email}</span>
+            <div className="w-40 md:hidden">
+              <ClientSwitcher clients={workspace.clients} selected={workspace.clientId} />
+            </div>
+            <span className="hidden text-xs text-muted-foreground md:inline">
+              {workspace.name ?? 'All clients'}
+            </span>
             <SignOutButton />
           </div>
         </header>

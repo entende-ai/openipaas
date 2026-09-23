@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { listRecentRequests, requestStats } from '@/lib/request-log'
 import { PageHeader } from '@/components/dashboard/PageHeader'
+import { currentWorkspace } from '@/lib/dashboard/workspace'
 
 // Logs are written on every request, so this page must not be cached.
 export const dynamic = 'force-dynamic'
@@ -14,11 +15,23 @@ function statusVariant(status: number): 'default' | 'secondary' | 'destructive' 
 }
 
 export default async function LogsPage() {
-  const [logs, stats] = await Promise.all([listRecentRequests({ limit: 100 }), requestStats()])
+  const workspace = await currentWorkspace()
+
+  const [logs, stats] = await Promise.all([
+    listRecentRequests({ limit: 100, clientId: workspace.clientId ?? undefined }),
+    requestStats(undefined, workspace.clientId),
+  ])
 
   return (
     <div className="space-y-6">
-      <PageHeader title="API logs" description="Every unified API call, as it happened." />
+      <PageHeader
+        title="API logs"
+        description={
+          workspace.name
+            ? `Every unified API call made for ${workspace.name}, as it happened.`
+            : 'Every unified API call, as it happened.'
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
