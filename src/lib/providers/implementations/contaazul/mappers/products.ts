@@ -26,8 +26,10 @@ export function mapContaAzulProductToUnified(ca: ContaAzulProduct): UnifiedProdu
     sku: ca.sku || (ca as any).codigo_sku || ca.codigo || null,
     ean: ca.ean || (ca as any).codigo_ean || null,
     price: ca.valor_venda,
-    costPrice: ca.custo_medio || (ca as any).estoque?.custo_medio || null,
-    stockQuantity: ca.saldo || (ca as any).estoque?.quantidade_total || 0,
+    // `??`, not `||`: a cost of zero and a stock of zero are answers, and
+    // falling through them reads the next source as if the first were silent.
+    costPrice: ca.custo_medio ?? (ca as any).estoque?.custo_medio ?? null,
+    stockQuantity: ca.saldo ?? (ca as any).estoque?.quantidade_total ?? 0,
     status: (ca.status === 'ATIVO' || (ca as any).ativo === true ? 'ACTIVE' : 'INACTIVE') as 'ACTIVE' | 'INACTIVE',
     updatedAt: ca.ultima_atualizacao || null,
     description: ca.descricao,
@@ -101,14 +103,23 @@ export function mapContaAzulUnitToUnified(ca: ContaAzulUnit): UnifiedUnit {
   return UnifiedUnitSchema.parse(mappedData);
 }
 
+/**
+ * A patch carries what the caller sent and nothing else.
+ *
+ * The numbers are tested for presence rather than for truth: setting a price
+ * or a weight to zero is a thing people do, and `if (unified.price)` drops it
+ * silently, which reads to the caller as a write that worked.
+ */
 export function mapUnifiedToContaAzulProductPatch(unified: any): any {
   const patch: any = {};
+  const sent = (value: unknown) => value !== undefined && value !== null;
+
   if (unified.name) patch.nome = unified.name;
   if (unified.sku) patch.codigo_sku = unified.sku;
   if (unified.ean) patch.codigo_ean = unified.ean;
-  if (unified.price) patch.valor_venda = unified.price;
-  if (unified.weightGross) patch.peso_bruto = unified.weightGross;
-  if (unified.weightNet) patch.peso_liquido = unified.weightNet;
+  if (sent(unified.price)) patch.valor_venda = unified.price;
+  if (sent(unified.weightGross)) patch.peso_bruto = unified.weightGross;
+  if (sent(unified.weightNet)) patch.peso_liquido = unified.weightNet;
   if (unified.unitId) patch.unidade_medida = unified.unitId;
   if (unified.ncmId) patch.ncm = unified.ncmId;
   if (unified.cestId) patch.cest = unified.cestId;

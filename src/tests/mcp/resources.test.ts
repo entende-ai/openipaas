@@ -202,3 +202,41 @@ describe('against a provider that really exists', () => {
     }
   });
 });
+
+/**
+ * Two facts an agent gets wrong by default: that a field it cannot see might
+ * exist, and that a missing number is zero. Both are said only where they are
+ * true of the connection in front of it.
+ */
+describe('what the guide says about fields and about nothing', () => {
+  it('explains customFields where the provider has them', () => {
+    const text = read(GUIDE_URI, manifestWith({ customFields: ['contacts', 'deals'] })).text;
+
+    expect(text).toContain('customFields');
+    // The hyphen warning is the part that costs an integrator an afternoon.
+    expect(text).toContain('unnormalized');
+  });
+
+  it('stays quiet about customFields where the provider has none', () => {
+    expect(read(GUIDE_URI, manifestWith({})).text).not.toContain('customFields');
+  });
+
+  it('always says that a missing amount is not zero', () => {
+    expect(read(GUIDE_URI, manifestWith({})).text).toContain('`null` is not zero');
+  });
+
+  it('names the resources that carry custom fields in the provider notes', () => {
+    const manifest = manifestWith({ customFields: ['contacts', 'deals'], incremental: ['contacts'] });
+    const text = read(providerUri('FAKE'), manifest).text;
+
+    expect(text).toContain('contacts, deals');
+    expect(text).toContain('updatedAfter');
+  });
+
+  it('leaves both lines out of the notes when the provider declares neither', () => {
+    const text = read(providerUri('FAKE'), manifestWith({})).text;
+
+    expect(text).not.toContain('customFields');
+    expect(text).not.toContain('updatedAfter');
+  });
+});

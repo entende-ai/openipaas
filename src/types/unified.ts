@@ -106,6 +106,23 @@ export interface UnifiedSeller extends UnifiedBaseRecord {
  * opportunity moving through a pipeline.
  * ------------------------------------------------------------------ */
 
+/**
+ * One field the account added itself, in the provider's own words.
+ *
+ * Present only on resources whose provider declares `customFields` in its
+ * manifest, and absent everywhere else rather than an empty list, so "this
+ * provider has no such concept" and "this record has none" stay different
+ * answers. `key` is the provider's own identifier, unnormalized: see the
+ * provider notes for what shape each one uses.
+ */
+export interface UnifiedCustomField {
+  key: string;
+  /** What the account calls the field, where the provider says. Null where it does not. */
+  label: string | null;
+  /** Null when the field is empty, or holds a shape a string cannot carry. */
+  value: string | null;
+}
+
 /** Who inside the client's team owns a record. */
 export interface UnifiedOwner {
   id: string | null;
@@ -123,8 +140,13 @@ export interface UnifiedContact extends UnifiedBaseRecord {
   /** Job title, where the provider records one. */
   title: string | null;
   companyId: string | null;
+  /**
+   * Filled only where the provider embeds the company in the same response.
+   * Where it does not, this is null and `companyId` is the reliable handle.
+   */
   companyName: string | null;
   owner: UnifiedOwner | null;
+  customFields?: UnifiedCustomField[];
   createdAt: string;
   updatedAt: string | null;
 }
@@ -137,6 +159,7 @@ export interface UnifiedCompany extends UnifiedBaseRecord {
   website: string | null;
   phones: string[];
   owner: UnifiedOwner | null;
+  customFields?: UnifiedCustomField[];
   createdAt: string;
   updatedAt: string | null;
 }
@@ -159,10 +182,15 @@ export interface UnifiedDeal extends UnifiedBaseRecord {
   stageId: string | null;
   stageName: string | null;
   companyId: string | null;
+  /**
+   * Filled only where the provider embeds the company in the same response.
+   * Where it does not, this is null and `companyId` is the reliable handle.
+   */
   companyName: string | null;
   /** A deal can involve several people, so this is a list even when it holds one. */
   contactIds: string[];
   owner: UnifiedOwner | null;
+  customFields?: UnifiedCustomField[];
   /** When it was won or lost. Null while it is open. */
   closedAt: string | null;
   createdAt: string;

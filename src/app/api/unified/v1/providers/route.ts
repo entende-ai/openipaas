@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     capabilities: m.capabilities,
     // Which resources can answer "what changed since", rather than a full page walk.
     incremental: m.incremental ?? [],
+    customFields: m.customFields ?? [],
   }))
 
   return NextResponse.json({ items: providers, totalItems: providers.length })

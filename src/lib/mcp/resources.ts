@@ -122,7 +122,11 @@ function capabilitiesPayload(ctx: McpContext) {
 }
 
 /** The reading and writing rules, which do not vary by provider. */
-function contractSection(): string[] {
+function contractSection(ctx: McpContext): string[] {
+  // Only said where some connection has them, because an agent told about a
+  // field it will never see goes looking for it.
+  const hasCustomFields = ctx.connections.some((connection) => (connection.provider.manifest.customFields?.length ?? 0) > 0);
+
   return [
     '## Reading',
     '',
@@ -131,6 +135,12 @@ function contractSection(): string[] {
     '- `limit` is capped at 200. Asking for more is not an error and does not get you more.',
     '- Where a list tool takes `updatedAfter`, it is an ISO-8601 instant and only records changed since then come back. That is how you follow up on a list you already have. A tool without that argument cannot do it: its provider does not offer the filter, and sending it anyway is refused rather than quietly ignored.',
     '- A `get` tool takes the `id` a list returned. Ids belong to the provider, and they are stable.',
+    ...(hasCustomFields
+      ? [
+          "- `customFields` carries the columns the account added itself, which is usually where the work actually is. `key` is the provider's own identifier, unnormalized, so it may contain hyphens; `label` is null unless the provider says what the field is called; `value` is a string, with a multi-select joined by `, `, or null. An empty list means this record has none. The field being absent means the provider has no such concept.",
+        ]
+      : []),
+    '- A money field is `null` when the provider records no value, and `null` is not zero. Do not read a missing amount as an amount of nothing, and do not sum nulls into a total as if they were zeros.',
     '',
     '## Writing',
     '',
@@ -218,7 +228,7 @@ function guide(ctx: McpContext): string {
     );
   }
 
-  lines.push(...contractSection());
+  lines.push(...contractSection(ctx));
 
   const passthrough = ctx.connections.flatMap(passthroughSection);
   if (passthrough.length > 0) lines.push('## Passthrough', '', ...passthrough);
@@ -260,6 +270,16 @@ function providerNotes(connection: McpConnection): string {
       `- Rate limit: this platform throttles itself to ${manifest.rateLimit.requestsPerSecond} requests per second per connected account${
         manifest.rateLimit.burst ? `, bursting to ${manifest.rateLimit.burst}` : ''
       }. Sustained loops will be slowed rather than refused.`
+    );
+  }
+
+  if (manifest.incremental?.length) {
+    lines.push(`- Takes \`updatedAfter\` on: ${manifest.incremental.join(', ')}. Anywhere else it is refused, not ignored.`);
+  }
+
+  if (manifest.customFields?.length) {
+    lines.push(
+      `- Carries \`customFields\`, the account's own columns, on: ${manifest.customFields.join(', ')}.`
     );
   }
 

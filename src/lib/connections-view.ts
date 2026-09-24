@@ -45,6 +45,8 @@ export interface ConnectionView {
   capabilities: Partial<Record<ResourceName, readonly Operation[]>>;
   /** Resources whose list accepts updatedAfter on this service. */
   incremental: readonly ResourceName[];
+  /** Resources that carry the account's own fields on this service. */
+  customFields: readonly ResourceName[];
   passthrough: boolean;
 }
 
@@ -101,6 +103,7 @@ export function describeConnections(params: {
       lastUsedAt: lastUsed ? lastUsed.toISOString() : null,
       capabilities: manifest?.capabilities ?? {},
       incremental: manifest?.incremental ?? [],
+      customFields: manifest?.customFields ?? [],
       passthrough: manifest?.passthrough ?? false,
     };
   });
