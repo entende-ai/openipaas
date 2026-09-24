@@ -78,10 +78,56 @@ export function mapRdContactToUnified(raw: any, owners: OwnerLookup = noOwners):
     companyName: null,
     // Contacts carry no owner_id in v2; only organizations and deals do.
     owner: owners(null),
+    customFields: customFields(raw?.custom_fields),
     createdAt: isoOrNull(raw?.created_at) ?? new Date(0).toISOString(),
     updatedAt: isoOrNull(raw?.updated_at),
     remoteData: { provider: SLUG, raw },
   });
+}
+
+/**
+ * The fields the account added itself.
+ *
+ * This is where most of what an RD account actually uses lives: the columns
+ * somebody created because the built-in ones did not fit. Reaching them used
+ * to mean reading `remoteData.raw`, which undoes the point of a unified layer,
+ * so they come through as a list.
+ *
+ * The keys are RD's own slugs, hyphens and all (`log-de-contatos`). They are
+ * not normalized: a slug is how the account names the column, and rewriting it
+ * would mean two names for one thing with no way back to the original.
+ *
+ * `label` stays null. RD sends the values keyed by slug and says nothing about
+ * what each column is called, and inventing a label from a slug would be
+ * guessing at somebody else's wording.
+ */
+function customFields(raw: unknown): { key: string; label: string | null; value: string | null }[] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+
+  return Object.entries(raw as Record<string, unknown>).map(([key, value]) => ({
+    key,
+    label: null,
+    value: customFieldValue(value),
+  }));
+}
+
+/**
+ * One value, as a string or null.
+ *
+ * RD custom fields can be text, a number, a date, a boolean or a multi-select.
+ * A list is joined with ", " so the common case reads as a person wrote it;
+ * anything with a shape of its own is left to `remoteData.raw`, because a
+ * JSON blob in a string field is not a value anyone can use.
+ */
+function customFieldValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (Array.isArray(value)) {
+    const parts = value.map(customFieldValue).filter((entry): entry is string => entry !== null);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  if (typeof value === 'object') return null;
+
+  return text(String(value));
 }
 
 /**
@@ -107,6 +153,7 @@ export function mapRdOrganizationToUnified(raw: any, owners: OwnerLookup = noOwn
     name: text(raw?.name) ?? '',
     document: documentFromCustomFields(raw?.custom_fields),
     website: text(raw?.url),
+    customFields: customFields(raw?.custom_fields),
     // Organizations have no phone field in v2.
     phones: [],
     owner: owners(id(raw?.owner_id)),
@@ -131,18 +178,35 @@ export function mapRdDealStatus(status: unknown): UnifiedDealStatus {
   }
 }
 
+/** A finite number, or null. `Number(null)` is 0, which is why this is not `Number`. */
+function money(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /**
- * Money on an RD deal is two numbers plus a derived total. `total_price` is
- * authoritative when present; otherwise the parts are added, and a deal with
- * no value at all stays null, because null is not zero.
+ * Money on an RD deal is two numbers plus a derived total, and a deal with no
+ * value at all is null rather than zero.
+ *
+ * `total_price` is read only and RD sends it on every deal, so "is it present"
+ * cannot separate a deal worth nothing from a deal nobody priced: both arrive
+ * as 0, alongside `one_time_price` and `recurrence_price` also at 0. Only a
+ * non-zero number carries information, so that is what is trusted, and when
+ * every number is zero or missing the answer is null.
+ *
+ * The cost of that choice: a deal genuinely worth zero also reads as null.
+ * That is the side worth being wrong on, because null says "RD does not know"
+ * and 0 says "RD says nothing", and only one of those is true here.
  */
 export function dealAmount(raw: any): number | null {
-  const total = Number(raw?.total_price);
-  if (Number.isFinite(total)) return total;
+  const total = money(raw?.total_price);
+  if (total !== null && total !== 0) return total;
 
-  const recurrence = Number(raw?.recurrence_price);
-  const oneTime = Number(raw?.one_time_price);
-  const parts = [recurrence, oneTime].filter((value) => Number.isFinite(value));
+  const parts = [money(raw?.recurrence_price), money(raw?.one_time_price)].filter(
+    (value): value is number => value !== null && value !== 0
+  );
 
   return parts.length > 0 ? parts.reduce((sum, value) => sum + value, 0) : null;
 }
@@ -173,6 +237,7 @@ export function mapRdDealToUnified(raw: any, owners: OwnerLookup = noOwners, sta
     companyName: null,
     contactIds: Array.isArray(raw?.contact_ids) ? raw.contact_ids.map((value: unknown) => String(value)) : [],
     owner: owners(id(raw?.owner_id)),
+    customFields: customFields(raw?.custom_fields),
     closedAt: isoOrNull(raw?.closed_at),
     createdAt: isoOrNull(raw?.created_at) ?? new Date(0).toISOString(),
     updatedAt: isoOrNull(raw?.updated_at),

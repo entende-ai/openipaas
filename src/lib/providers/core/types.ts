@@ -143,6 +143,15 @@ export interface ProviderManifest {
    * A resource not listed here answers 501 rather than pretending.
    */
   incremental?: readonly ResourceName[];
+  /**
+   * Resources that carry `customFields`, the columns an account added itself.
+   *
+   * Declared per provider for the same reason `incremental` is: a caller has
+   * to know whether an empty list means "this record has none" or "we never
+   * look". Absent means the provider has no such concept, and the field never
+   * appears on its records.
+   */
+  customFields?: readonly ResourceName[];
   /** Whether the raw upstream API is exposed through /passthrough. */
   passthrough: boolean;
   /**

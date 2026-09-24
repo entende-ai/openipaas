@@ -100,6 +100,14 @@ export const UnifiedOwnerSchema = z.object({
   email: z.string().nullable(),
 });
 
+export const UnifiedCustomFieldSchema = z.object({
+  key: z
+    .string()
+    .describe("The provider's own identifier for the field, unnormalized. See the provider notes for its shape."),
+  label: z.string().nullable().describe('What the account calls the field, where the provider says. Null where it does not.'),
+  value: z.string().nullable().describe('Null when the field is empty, or holds a shape a string cannot carry.'),
+});
+
 export const UnifiedContactSchema = UnifiedBaseRecordSchema.extend({
   id: z.string(),
   name: z.string(),
@@ -108,8 +116,14 @@ export const UnifiedContactSchema = UnifiedBaseRecordSchema.extend({
   phones: z.array(z.string()),
   title: z.string().nullable(),
   companyId: z.string().nullable(),
-  companyName: z.string().nullable(),
+  companyName: z
+    .string()
+    .nullable()
+    .describe(
+      'Filled only where the provider embeds the company in the same response. Null otherwise, and companyId is the reliable handle.'
+    ),
   owner: UnifiedOwnerSchema.nullable(),
+  customFields: z.array(UnifiedCustomFieldSchema).optional().describe('The fields the account added itself. Present only on services that declare customFields for this resource in GET /providers.'),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 });
@@ -121,6 +135,7 @@ export const UnifiedCompanySchema = UnifiedBaseRecordSchema.extend({
   website: z.string().nullable(),
   phones: z.array(z.string()),
   owner: UnifiedOwnerSchema.nullable(),
+  customFields: z.array(UnifiedCustomFieldSchema).optional().describe('The fields the account added itself. Present only on services that declare customFields for this resource in GET /providers.'),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 });
@@ -129,16 +144,25 @@ export const UnifiedDealSchema = UnifiedBaseRecordSchema.extend({
   id: z.string(),
   name: z.string(),
   status: z.enum(['OPEN', 'WON', 'LOST', 'UNKNOWN']),
-  amount: z.number().nullable(),
+  amount: z
+    .number()
+    .nullable()
+    .describe('Null when the service records no value on the deal. Null is not zero: a deal worth nothing is not the same as a deal nobody priced.'),
   currency: z.string().nullable(),
   pipelineId: z.string().nullable(),
   pipelineName: z.string().nullable(),
   stageId: z.string().nullable(),
   stageName: z.string().nullable(),
   companyId: z.string().nullable(),
-  companyName: z.string().nullable(),
+  companyName: z
+    .string()
+    .nullable()
+    .describe(
+      'Filled only where the provider embeds the company in the same response. Null otherwise, and companyId is the reliable handle.'
+    ),
   contactIds: z.array(z.string()),
   owner: UnifiedOwnerSchema.nullable(),
+  customFields: z.array(UnifiedCustomFieldSchema).optional().describe('The fields the account added itself. Present only on services that declare customFields for this resource in GET /providers.'),
   closedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),

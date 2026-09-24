@@ -16,6 +16,8 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [Writing](#writing)
 - [Writing a record you may already have](#writing-a-record-you-may-already-have)
 - [Knowing what a provider can do](#knowing-what-a-provider-can-do)
+- [The fields an account added itself](#the-fields-an-account-added-itself)
+- [Names that are only sometimes there](#names-that-are-only-sometimes-there)
 - [How much you may call](#how-much-you-may-call)
 - [Errors](#errors)
 - [Passthrough](#passthrough)
@@ -290,6 +292,41 @@ Each entry carries a capability matrix: which resources exist and which operatio
 
 The same matrix is rendered in the API reference at `/docs`.
 
+## The fields an account added itself
+
+Most of what a company actually uses in its CRM is not in the built-in columns. It is in the ones somebody created: `log-de-contatos`, `propostas-enviadas`, `responsavel`. Those come through as `customFields`:
+
+```json
+{
+  "id": "6812...",
+  "name": "Implantacao",
+  "amount": null,
+  "customFields": [
+    { "key": "responsavel", "label": null, "value": "Fabio" },
+    { "key": "log-de-contatos", "label": null, "value": "Ligacao em 02/05" },
+    { "key": "interesse", "label": null, "value": "Consultoria, Treinamento" },
+    { "key": "etapa-do-negocio", "label": null, "value": null }
+  ]
+}
+```
+
+Four things to know before you build on it:
+
+- **`customFields` is absent where the service has no such concept, and an empty list where the record simply has none.** Those are different answers, and `GET /providers` says which you are dealing with: each entry carries `customFields` listing the resources that have them, the same way `incremental` lists the ones that accept `updatedAfter`.
+- **`key` is the service's own identifier, exactly as it sends it.** It is not normalized. RD Station CRM uses hyphenated slugs (`log-de-contatos`), and a system that requires `[a-z0-9_]` for an identifier will refuse that string. Normalize it on your side if you must, and keep the original, because it is the only thing that maps back.
+- **`label` is null unless the service says what the field is called.** RD sends values keyed by slug and nothing else, so `label` stays null there rather than being invented from the key.
+- **`value` is a string or null.** A multi-select is joined with `", "`. A field holding a shape a string cannot carry is `null`, and the original is still in `remoteData.raw`.
+
+Nothing here replaces `remoteData`. It removes the need to reach for it for the common case, which is reading a field somebody added.
+
+## Names that are only sometimes there
+
+`companyName` on a contact or a deal is filled **only where the service embeds the company in the same response**. Where it does not, it is null and `companyId` is the reliable handle.
+
+RD Station CRM is such a service: a contact and a deal carry `organization_id` and nothing else. Resolving the name would mean one extra request per record, which turns a page of 25 into 26 and a page of 200 into 201, against an API that allows 120 requests a minute. So it stays null, and the honest path is to read companies once through `GET /companies` and join on `companyId`.
+
+The same applies to `pipelineName`, `stageName` and `owner.name`, with one difference: those come from small lists the platform already fetches once per request and resolves in memory, so they are filled. Companies are not a small list.
+
 ## How much you may call
 
 Two budgets, both per minute, both counted across every instance when Redis is configured:
@@ -415,7 +452,9 @@ Base URL `https://api.rd.services/crm/v2`. Unified resources: contacts, companie
 - **Companies are `organizations` upstream.** The unified `companyId` on a contact or a deal is an organization id.
 - **`document` (CNPJ) is read only.** It lives in a custom field whose slug differs per account, so it is read where present and never written.
 - **Deals join a funnel through their stage.** `pipelineId` is read only; send `stageId` on create. `GET /pipelines` returns each pipeline with its stages in order, which is where a stage id comes from.
-- **A deal's `amount`** is the total where RD reports one, otherwise the sum of its recurring and one-off prices. A deal with no value has `amount: null`, which is not zero.
+- **A deal's `amount` is null when RD records no value on it.** `total_price` is derived and read only, so RD sends it on every deal: a deal nobody priced arrives with `total_price`, `one_time_price` and `recurrence_price` all at 0, and presence cannot tell it apart from a deal genuinely worth nothing. Only a non-zero number is treated as an answer, so both read as `null`. That is the side worth being wrong on, because `null` says RD does not know, and `0` claims it does.
+- **`companyName` is always null on contacts and deals**, because RD never embeds the organization. `companyId` is the organization id, and `GET /companies` is the one call that resolves them all. See [Names that are only sometimes there](#names-that-are-only-sometimes-there).
+- **`customFields` carries the account's own columns**, on contacts, companies and deals. RD keys them by slug, which is usually hyphenated (`log-de-contatos`), and sends no labels, so `label` is null. See [The fields an account added itself](#the-fields-an-account-added-itself).
 - **Status vocabulary**: RD's `won` and `lost` map to `WON` and `LOST`; `ongoing` and `paused` are both `OPEN`. Anything unrecognized is `UNKNOWN` rather than a guess.
 - **Owner and stage names** come from the account's users and pipelines, fetched once per request batch and cached. If the connected user cannot read them, ids still come back and only the names are null.
 - **Rate limit**: 120 requests per minute per account, which the platform throttles to on your behalf.

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ContaAzulProvider } from '@/lib/providers/implementations/contaazul/provider';
 import { readPage } from '@/lib/providers/core/pagination';
+import {
+  mapContaAzulProductToUnified,
+  mapUnifiedToContaAzulProductPatch,
+} from '@/lib/providers/implementations/contaazul/mappers/products';
 import { makeContext, stubFetch, noSleep } from '../helpers';
 
 const ctx = makeContext({ provider: 'CONTA_AZUL', accessToken: 'live-token' });
@@ -239,5 +243,52 @@ describe('ContaAzulProvider passthrough', () => {
       code: 'INVALID_REQUEST',
     });
     expect(stub.calls).toHaveLength(0);
+  });
+});
+
+/**
+ * Zero from the provider is an answer, not a silence.
+ *
+ * Same family as the RD deal total: a falsy check reads a real zero as "not
+ * sent" and moves on to the next source, or drops the write.
+ */
+describe('Conta Azul numbers that are zero', () => {
+  it('keeps a stock of zero instead of reading the next source', () => {
+    const product = mapContaAzulProductToUnified({
+      id: 'p1',
+      nome: 'Servico',
+      valor_venda: 100,
+      saldo: 0,
+      custo_medio: 0,
+      status: 'ATIVO',
+      estoque: { quantidade_total: 7, custo_medio: 42 },
+    } as any);
+
+    expect(product.stockQuantity).toBe(0);
+    expect(product.costPrice).toBe(0);
+  });
+
+  it('still falls back when the first source really is absent', () => {
+    const product = mapContaAzulProductToUnified({
+      id: 'p1',
+      nome: 'Servico',
+      valor_venda: 100,
+      status: 'ATIVO',
+      estoque: { quantidade_total: 7, custo_medio: 42 },
+    } as any);
+
+    expect(product.stockQuantity).toBe(7);
+    expect(product.costPrice).toBe(42);
+  });
+
+  it('writes a price of zero rather than dropping it from the patch', () => {
+    expect(mapUnifiedToContaAzulProductPatch({ price: 0, weightNet: 0 })).toEqual({
+      valor_venda: 0,
+      peso_liquido: 0,
+    });
+  });
+
+  it('leaves out what the caller did not send', () => {
+    expect(mapUnifiedToContaAzulProductPatch({ name: 'Servico' })).toEqual({ nome: 'Servico' });
   });
 });
