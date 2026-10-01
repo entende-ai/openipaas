@@ -152,6 +152,17 @@ export interface ProviderManifest {
    * appears on its records.
    */
   customFields?: readonly ResourceName[];
+  /**
+   * Resources where walking every page returns every record exactly once.
+   *
+   * Only listed after it has been established against the live API, either
+   * because this provider sends an order the upstream honours, or because the
+   * resource always arrives in one page. A resource left out is not a claim
+   * that it is broken: it is the absence of a claim that it is not, and every
+   * page of it answers with `unstableList: true` so a caller is never left to
+   * assume.
+   */
+  stableList?: readonly ResourceName[];
   /** Whether the raw upstream API is exposed through /passthrough. */
   passthrough: boolean;
   /**
@@ -208,6 +219,17 @@ export interface Page<T> {
   hasMore: boolean;
   nextCursor: string | null;
   totalItems?: number;
+  /**
+   * Present, and always `true`, when walking this resource's pages can repeat
+   * some records and miss others.
+   *
+   * It means the upstream does not promise an order, so page 2 is "rows 201 to
+   * 400 of whatever order the database felt like", and between two requests
+   * that order can change. Absent means a full scan returns every record
+   * exactly once, which is what a caller importing a customer's data needs to
+   * know before trusting the count on its own screen.
+   */
+  unstableList?: true;
 }
 
 export interface ListParams {

@@ -25,6 +25,11 @@ export const contaAzulManifest: ProviderManifest = {
     sales: ['list', 'get', 'pdf', 'bulkDelete'],
     sellers: ['list'],
   },
+  // Sellers arrive whole in one response, so there is no scan to get wrong.
+  // The paged resources are deliberately absent: Conta Azul documents no sort
+  // parameter and no account has been measured, so claiming a complete scan
+  // here would be a promise nobody checked. See issue on measuring them.
+  stableList: ['sellers'],
   passthrough: true,
   enabled: true,
 };

@@ -240,3 +240,30 @@ describe('what the guide says about fields and about nothing', () => {
     expect(text).not.toContain('updatedAfter');
   });
 });
+
+describe('what the guide says about trusting a scan', () => {
+  it('explains the flag where some resource can carry it', () => {
+    const text = read(GUIDE_URI, manifestWith({ capabilities: { contacts: ['list'] } })).text;
+
+    expect(text).toContain('unstableList');
+    // The instruction that matters: do not report a scan as a count.
+    expect(text).toContain('complete count');
+  });
+
+  it('stays quiet where every resource is complete', () => {
+    const manifest = manifestWith({ capabilities: { contacts: ['list'] }, stableList: ['contacts'] });
+
+    expect(read(GUIDE_URI, manifest).text).not.toContain('unstableList');
+  });
+
+  it('names the resources at risk in the provider notes', () => {
+    const manifest = manifestWith({
+      capabilities: { contacts: ['list'], deals: ['list'] },
+      stableList: ['contacts'],
+    });
+
+    const text = read(providerUri('FAKE'), manifest).text;
+    expect(text).toContain('not promised complete on: deals');
+    expect(text).not.toContain('contacts, deals');
+  });
+});

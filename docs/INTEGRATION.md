@@ -12,6 +12,7 @@ From zero to a working call. Read this once, then use the API reference at `/doc
 - [What a client has connected](#what-a-client-has-connected)
 - [4. Make the first call](#4-make-the-first-call)
 - [Paging through a list](#paging-through-a-list)
+  - [Whether a full scan is complete](#whether-a-full-scan-is-complete)
 - [Reading only what changed](#reading-only-what-changed)
 - [Writing](#writing)
 - [Writing a record you may already have](#writing-a-record-you-may-already-have)
@@ -203,6 +204,36 @@ Loop while `hasMore` is true, passing `nextCursor` back as `cursor`. Never build
 `totalItems` is best effort and is **absent from the response** for providers whose API cannot report a total, which is the case for RD Station CRM. Do not drive a progress bar off it without a fallback.
 
 `search` is accepted where the provider supports free-text search, and ignored where it does not.
+
+### Whether a full scan is complete
+
+Walking every page of a list is the normal way to import a customer's data, and it has a precondition most APIs do not state: the underlying list has to be in a fixed order. Offset paging over an unordered set means page 2 is "rows 201 to 400 of whatever order the database chose", and if that order changes between two requests, some records land in the gap and others arrive twice. Every call answers 200. Nothing looks wrong.
+
+So the response says so:
+
+```json
+{
+  "items": [ ... ],
+  "hasMore": true,
+  "nextCursor": "eyJwYWdlIjoyfQ",
+  "unstableList": true
+}
+```
+
+`unstableList` is **present, and always `true`, only where that risk exists**. Absent means a full scan returns every record exactly once. And you do not have to call to find out, because the catalog says it per resource:
+
+```bash
+curl https://app.openipaas.com/api/unified/v1/providers | jq '.items[] | {slug, stableList}'
+```
+
+A resource in `stableList` is one where this has been established against the live API, either because this platform sends an order the upstream honours or because the resource always arrives in one page. A resource left out is not a claim that it is broken. It is the absence of a claim that it is not, which is the only honest thing to say about a provider nobody has measured.
+
+What to do when you see it:
+
+- **Importing?** Treat the result as a set to merge by id, not as the list. Upsert rather than replace, and do not delete local records just because a scan did not mention them.
+- **Counting?** Do not show the number as a total. It will change between two scans of unchanged data, and the person looking at the screen will think something moved.
+- **Reading one page, or one record by id?** Unaffected. The risk is only in stitching pages together.
+- **Running a delta with `updatedAfter`?** This is the case that hurts: a record missed inside a window is never offered again, because the next window starts later. Prefer a resource without the flag, and where there is not one, re-scan from the beginning periodically rather than trusting the deltas alone.
 
 ## Reading only what changed
 
@@ -457,11 +488,15 @@ Base URL `https://api.rd.services/crm/v2`. Unified resources: contacts, companie
 - **`customFields` carries the account's own columns**, on contacts, companies and deals. RD keys them by slug, which is usually hyphenated (`log-de-contatos`), and sends no labels, so `label` is null. See [The fields an account added itself](#the-fields-an-account-added-itself).
 - **Status vocabulary**: RD's `won` and `lost` map to `WON` and `LOST`; `ongoing` and `paused` are both `OPEN`. Anything unrecognized is `UNKNOWN` rather than a guess.
 - **Owner and stage names** come from the account's users and pipelines, fetched once per request batch and cached. If the connected user cannot read them, ids still come back and only the names are null.
+- **A full scan is complete** on contacts, companies and deals. RD answers an unordered list by default, so this platform sends `sort[created_at]=asc` on every list request. Measured on a live account: without it, page 1 asked twice seconds apart shared no records at all; with it, the same page is identical, including page 60 of 317. Ascending creation time also means a record created during a scan sorts behind the pages already read, so it cannot shift them. Only a record deleted mid-scan can still cost you one.
+- **Why not a keyset cursor**: RD takes `sort[<field>]` but answers 500 for `sort[id]`, and rejects `created_at` as an RDQL filter property with 422, so there is no way to ask for "everything after this point". Page numbers plus a fixed order is the best the API allows.
 - **Rate limit**: 120 requests per minute per account, which the platform throttles to on your behalf.
 
 ### Conta Azul, Omie, Tiny
 
 Accounting and ERP providers, covering customers, products and sales to varying degrees. Check `/providers` for the exact matrix rather than assuming: it is generated from the code and cannot drift.
+
+Their paged resources carry `unstableList: true`. Neither API documents a sort parameter, and no live account has been measured, so a complete scan is not promised. Sellers on Conta Azul arrive in one response and are not flagged. See [Whether a full scan is complete](#whether-a-full-scan-is-complete).
 
 ## Nothing to read yet
 

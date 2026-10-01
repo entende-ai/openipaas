@@ -50,6 +50,11 @@ export const rdStationCrmManifest: ProviderManifest = {
   // three list endpoints, and on no others.
   incremental: ['contacts', 'companies', 'deals'],
   customFields: ['contacts', 'companies', 'deals'],
+  // Measured against the live API: with `sort[created_at]=asc` the same page
+  // asked twice is byte-identical, including page 60 of 317. Without it, page 1
+  // asked twice shared nothing. Pipelines arrive whole in one page, so there is
+  // no scan to get wrong.
+  stableList: ['contacts', 'companies', 'deals', 'pipelines'],
   passthrough: true,
 
   // Straight from the CRM v2 reference. Listing endpoints are paginated, so

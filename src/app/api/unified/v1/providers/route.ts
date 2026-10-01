@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     // Which resources can answer "what changed since", rather than a full page walk.
     incremental: m.incremental ?? [],
     customFields: m.customFields ?? [],
+    stableList: m.stableList ?? [],
   }))
 
   return NextResponse.json({ items: providers, totalItems: providers.length })

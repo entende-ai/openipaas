@@ -292,3 +292,30 @@ describe('Conta Azul numbers that are zero', () => {
     expect(mapUnifiedToContaAzulProductPatch({ name: 'Servico' })).toEqual({ nome: 'Servico' });
   });
 });
+
+/**
+ * The flag that says a scan cannot be trusted.
+ *
+ * Conta Azul documents no sort parameter and no live account has been measured,
+ * so its paged resources are deliberately not declared complete. Silence would
+ * read as a promise, which is the bug this flag exists to prevent.
+ */
+describe('Conta Azul paging honesty', () => {
+  it('warns on a paged resource that has not been established as complete', async () => {
+    const stub = stubFetch([{ json: { itens: [], total_itens: 0 } }]);
+    const sut = new ContaAzulProvider({ fetchImpl: stub.fetch, sleep: noSleep });
+
+    expect(await sut.listCustomers(makeContext({ provider: 'CONTA_AZUL' }), {})).toHaveProperty(
+      'unstableList',
+      true
+    );
+  });
+
+  // Sellers arrive whole in one response, so there is no scan to get wrong.
+  it('stays quiet on a resource that arrives in one response', async () => {
+    const stub = stubFetch([{ json: [] }]);
+    const sut = new ContaAzulProvider({ fetchImpl: stub.fetch, sleep: noSleep });
+
+    expect(await sut.listSellers(makeContext({ provider: 'CONTA_AZUL' }), {})).not.toHaveProperty('unstableList');
+  });
+});

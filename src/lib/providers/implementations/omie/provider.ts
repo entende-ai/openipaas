@@ -73,6 +73,7 @@ export class OmieProvider extends BaseProvider implements CustomerModule {
     const totalItems = data?.total_de_registros ?? raw.length;
 
     return this.page(raw.map(mapOmieCustomerToUnified), {
+      resource: 'customers',
       totalItems,
       nextCursor: nextPageCursor(page, raw.length, size, totalItems),
     });

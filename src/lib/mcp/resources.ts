@@ -126,6 +126,11 @@ function contractSection(ctx: McpContext): string[] {
   // Only said where some connection has them, because an agent told about a
   // field it will never see goes looking for it.
   const hasCustomFields = ctx.connections.some((connection) => (connection.provider.manifest.customFields?.length ?? 0) > 0);
+  // Said only where some connection can actually answer with the flag.
+  const canBeUnstable = ctx.connections.some((connection) => {
+    const { capabilities, stableList } = connection.provider.manifest;
+    return Object.keys(capabilities).some((resource) => !(stableList ?? []).includes(resource as never));
+  });
 
   return [
     '## Reading',
@@ -141,6 +146,11 @@ function contractSection(ctx: McpContext): string[] {
         ]
       : []),
     '- A money field is `null` when the provider records no value, and `null` is not zero. Do not read a missing amount as an amount of nothing, and do not sum nulls into a total as if they were zeros.',
+    ...(canBeUnstable
+      ? [
+          '- `unstableList: true` on a page means walking all the pages of that resource can repeat some records and miss others, because the provider does not promise an order. It is not an error and nothing failed. What it means is that you must not report the result of such a scan as a complete count, or tell anyone how many records exist; say what you saw and say it may be incomplete. Reading one page, or one record by id, is unaffected.',
+        ]
+      : []),
     '',
     '## Writing',
     '',
@@ -275,6 +285,15 @@ function providerNotes(connection: McpConnection): string {
 
   if (manifest.incremental?.length) {
     lines.push(`- Takes \`updatedAfter\` on: ${manifest.incremental.join(', ')}. Anywhere else it is refused, not ignored.`);
+  }
+
+  const unstable = Object.keys(manifest.capabilities).filter(
+    (resource) => !(manifest.stableList ?? []).includes(resource as never)
+  );
+  if (unstable.length > 0) {
+    lines.push(
+      `- A full scan is not promised complete on: ${unstable.join(', ')}. Those pages carry \`unstableList: true\`.`
+    );
   }
 
   if (manifest.customFields?.length) {
