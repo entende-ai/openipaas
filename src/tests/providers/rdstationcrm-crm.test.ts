@@ -481,3 +481,71 @@ describe('the fields an account added itself', () => {
     expect(rdStationCrmManifest.customFields).toEqual(['contacts', 'companies', 'deals']);
   });
 });
+
+/**
+ * Paging that can be trusted across pages.
+ *
+ * RD answers an unordered list by default, so offset paging over it repeats
+ * some records and misses others, with every call returning 200. Measured on
+ * the live API: page 1 of /contacts asked twice, seconds apart, shared no ids
+ * at all. With the sort below, the same page is byte-identical, including deep
+ * in the set.
+ */
+describe('asking RD for an order', () => {
+  const query = (url: string) => Object.fromEntries(new URL(url).searchParams);
+
+  it.each(['listContacts', 'listCompanies', 'listDeals'] as const)('sorts %s by creation time', async (method) => {
+    const { stub, sut } = provider([{ json: { data: [], links: { next: null } } }, USERS, PIPELINES, STAGES]);
+
+    await (sut as any)[method](ctx, {});
+
+    expect(query(stub.calls[0].url)['sort[created_at]']).toBe('asc');
+  });
+
+  // The order has to survive the other query parameters, because a scan of a
+  // delta window is exactly where a missed record is never seen again.
+  it('keeps the order alongside a search and an updatedAfter filter', async () => {
+    const { stub, sut } = provider([{ json: { data: [], links: { next: null } } }, USERS]);
+
+    await sut.listContacts(ctx, { search: 'Maria', updatedAfter: '2026-09-01T00:00:00.000Z' });
+
+    const sent = query(stub.calls[0].url);
+    expect(sent['sort[created_at]']).toBe('asc');
+    expect(sent.filter).toContain('name:~Maria');
+    expect(sent.filter).toContain('updated_at:>=');
+  });
+
+  it('carries the order onto every later page, not just the first', async () => {
+    const { stub, sut } = provider([
+      { json: { data: [CONTACT], links: { next: 'https://api.rd.services/crm/v2/contacts?page[number]=2' } } },
+      USERS,
+      { json: { data: [CONTACT], links: { next: null } } },
+      USERS,
+    ]);
+
+    const first = await sut.listContacts(ctx, { limit: 1 });
+    await sut.listContacts(ctx, { limit: 1, cursor: first.nextCursor! });
+
+    const second = query(stub.calls[2].url);
+    expect(second['page[number]']).toBe('2');
+    expect(second['sort[created_at]']).toBe('asc');
+  });
+});
+
+/**
+ * What a caller is told about trusting a scan.
+ *
+ * The flag is the answer to "there is no way for the client to know the list
+ * came back incomplete". Absent is the promise; present is the warning.
+ */
+describe('whether a scan can be trusted', () => {
+  it('says nothing on a resource whose scan is complete', async () => {
+    const { sut } = provider([{ json: { data: [CONTACT], links: { next: null } } }, USERS]);
+
+    expect(await sut.listContacts(ctx, {})).not.toHaveProperty('unstableList');
+  });
+
+  it('declares which resources those are, so a caller can ask before calling', () => {
+    expect(rdStationCrmManifest.stableList).toEqual(['contacts', 'companies', 'deals', 'pipelines']);
+  });
+});

@@ -99,7 +99,7 @@ export class RdStationCrmProvider extends BaseProvider {
 
     return this.page(
       data.map((raw) => mapRdContactToUnified(raw, owners)),
-      { nextCursor }
+      { resource: 'contacts', nextCursor }
     );
   }
 
@@ -131,7 +131,7 @@ export class RdStationCrmProvider extends BaseProvider {
 
     return this.page(
       data.map((raw) => mapRdContactToUnified(raw, owners)),
-      { nextCursor }
+      { resource: 'contacts', nextCursor }
     );
   }
 
@@ -211,7 +211,7 @@ export class RdStationCrmProvider extends BaseProvider {
 
     return this.page(
       data.map((raw) => mapRdOrganizationToUnified(raw, owners)),
-      { nextCursor }
+      { resource: 'companies', nextCursor }
     );
   }
 
@@ -246,7 +246,7 @@ export class RdStationCrmProvider extends BaseProvider {
 
     return this.page(
       data.map((raw) => mapRdDealToUnified(raw, owners, stages)),
-      { nextCursor }
+      { resource: 'deals', nextCursor }
     );
   }
 
@@ -285,7 +285,7 @@ export class RdStationCrmProvider extends BaseProvider {
     // one page rather than making the caller walk a cursor.
     return this.page(
       pipelines.map((pipeline) => mapRdPipelineToUnified({ id: pipeline.id, name: pipeline.name }, pipeline.stages)),
-      { totalItems: pipelines.length, nextCursor: null }
+      { resource: 'pipelines', totalItems: pipelines.length, nextCursor: null }
     );
   }
 
@@ -302,7 +302,23 @@ export class RdStationCrmProvider extends BaseProvider {
     const page = readPage(params.cursor);
     const size = Number(params.limit) > 0 ? Number(params.limit) : DEFAULT_PAGE_SIZE;
 
-    const query: Record<string, string | number> = { 'page[number]': page, 'page[size]': size };
+    const query: Record<string, string | number> = {
+      'page[number]': page,
+      'page[size]': size,
+      // Without this, RD answers each page from whatever order its database
+      // felt like, and that order changes between requests: the same page 1
+      // asked twice, seconds apart, came back with five different contacts and
+      // no overlap. Offset paging over an unordered set repeats some records
+      // and drops others, silently, with every call answering 200.
+      //
+      // `created_at` is the only field that works. RD takes `sort[<field>]`,
+      // answers 500 for `sort[id]`, and 422 for a `created_at` RDQL filter, so
+      // keyset paging is not on offer. Ascending creation time is the next best
+      // thing and has one property worth having: a record created during a scan
+      // sorts to the end, behind the pages already read, so it cannot shift
+      // them. Only a deletion mid-scan can still cost one record.
+      'sort[created_at]': 'asc',
+    };
 
     // RDQL, which is `property:value` separated by spaces, combined with an
     // implicit AND. Only the two filters RD documents for these endpoints are

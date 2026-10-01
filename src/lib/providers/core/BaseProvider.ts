@@ -218,9 +218,28 @@ export abstract class BaseProvider implements UnifiedProvider {
 
   /* -------------------------------------------------- helpers */
 
-  protected page<T>(items: T[], opts: { totalItems?: number; nextCursor?: string | null } = {}): Page<T> {
+  /**
+   * One page, plus whether a caller may trust a scan of all of them.
+   *
+   * `resource` is what decides that, against the manifest's `stableList`. It is
+   * required rather than optional on purpose: an omitted resource would read as
+   * "this one is fine", and the whole point of the flag is that silence must
+   * not mean a promise nobody checked.
+   */
+  protected page<T>(
+    items: T[],
+    opts: { resource: ResourceName; totalItems?: number; nextCursor?: string | null }
+  ): Page<T> {
     const nextCursor = opts.nextCursor ?? null;
-    return { items, nextCursor, hasMore: nextCursor !== null, totalItems: opts.totalItems };
+    const stable = (this.manifest.stableList ?? []).includes(opts.resource);
+
+    return {
+      items,
+      nextCursor,
+      hasMore: nextCursor !== null,
+      totalItems: opts.totalItems,
+      ...(stable ? {} : { unstableList: true as const }),
+    };
   }
 }
 

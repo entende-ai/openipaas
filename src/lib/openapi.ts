@@ -43,6 +43,12 @@ function pageOf(ref: string) {
         type: 'integer',
         description: 'Absent for providers whose API cannot report a total.',
       },
+      unstableList: {
+        type: 'boolean',
+        enum: [true],
+        description:
+          'Present, and always true, when walking every page of this resource can repeat some records and miss others, because the service does not promise an order. Nothing failed and no call errored. Absent means a full scan returns every record exactly once. GET /providers says which resources are which, under stableList, so you can know before you start.',
+      },
     },
     required: ['items', 'hasMore', 'nextCursor'],
   };

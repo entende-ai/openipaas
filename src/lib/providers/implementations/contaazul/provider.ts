@@ -9,6 +9,7 @@ import type {
   ProductModule,
   ProviderContext,
   ProviderManifest,
+  ResourceName,
   SalesModule,
 } from '@/lib/providers/core/types';
 import type {
@@ -64,6 +65,7 @@ export class ContaAzulProvider extends BaseProvider implements CustomerModule, P
     const raw = itemsOf(data);
     const totalItems = totalOf(data, raw.length);
     return this.page(raw.map(mapContaAzulCustomerToUnified), {
+      resource: 'customers',
       totalItems,
       nextCursor: nextPageCursor(page, raw.length, size, totalItems),
     });
@@ -125,6 +127,7 @@ export class ContaAzulProvider extends BaseProvider implements CustomerModule, P
     const raw = itemsOf(data);
     const totalItems = totalOf(data, raw.length);
     return this.page(raw.map(mapContaAzulProductToUnified), {
+      resource: 'products',
       totalItems,
       nextCursor: nextPageCursor(page, raw.length, size, totalItems),
     });
@@ -164,17 +167,17 @@ export class ContaAzulProvider extends BaseProvider implements CustomerModule, P
 
   async listCategories(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedCategory>> {
     this.assertSupports('categories', 'list');
-    return this.listSimple(ctx, '/produtos/categorias', params, mapContaAzulCategoryToUnified);
+    return this.listSimple(ctx, 'categories', '/produtos/categorias', params, mapContaAzulCategoryToUnified);
   }
 
   async listBrands(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedBrand>> {
     this.assertSupports('brands', 'list');
-    return this.listSimple(ctx, '/produtos/ecommerce-marcas', params, mapContaAzulBrandToUnified);
+    return this.listSimple(ctx, 'brands', '/produtos/ecommerce-marcas', params, mapContaAzulBrandToUnified);
   }
 
   async listUnits(ctx: ProviderContext, params: ListParams): Promise<Page<UnifiedUnit>> {
     this.assertSupports('units', 'list');
-    return this.listSimple(ctx, '/produtos/unidades-medida', params, mapContaAzulUnitToUnified);
+    return this.listSimple(ctx, 'units', '/produtos/unidades-medida', params, mapContaAzulUnitToUnified);
   }
 
   /** NCM and CEST are fiscal reference tables with no unified counterpart. */
@@ -188,6 +191,7 @@ export class ContaAzulProvider extends BaseProvider implements CustomerModule, P
 
   private async listSimple<T>(
     ctx: ProviderContext,
+    resource: ResourceName,
     path: string,
     params: ListParams,
     map: (raw: any) => T
@@ -197,6 +201,7 @@ export class ContaAzulProvider extends BaseProvider implements CustomerModule, P
     const raw = itemsOf(data);
     const totalItems = totalOf(data, raw.length);
     return this.page(raw.map(map), {
+      resource,
       totalItems,
       nextCursor: nextPageCursor(page, raw.length, size, totalItems),
     });
@@ -212,6 +217,7 @@ export class ContaAzulProvider extends BaseProvider implements CustomerModule, P
     const raw: any[] = data?.itens ?? [];
     const totalItems = data?.total_itens ?? raw.length;
     return this.page(raw.map(mapCAListSaleToUnified), {
+      resource: 'sales',
       totalItems,
       nextCursor: nextPageCursor(page, raw.length, size, totalItems),
     });
@@ -243,7 +249,7 @@ export class ContaAzulProvider extends BaseProvider implements CustomerModule, P
     this.assertSupports('sellers', 'list');
     const data = await this.request(ctx, { method: 'GET', path: '/venda/vendedores' });
     const raw: any[] = Array.isArray(data) ? data : itemsOf(data);
-    return this.page(raw.map(mapCASellerToUnified), { totalItems: raw.length });
+    return this.page(raw.map(mapCASellerToUnified), { resource: 'sellers', totalItems: raw.length });
   }
 }
 

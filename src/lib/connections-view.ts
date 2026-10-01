@@ -47,6 +47,8 @@ export interface ConnectionView {
   incremental: readonly ResourceName[];
   /** Resources that carry the account's own fields on this service. */
   customFields: readonly ResourceName[];
+  /** Resources where walking every page returns every record exactly once. */
+  stableList: readonly ResourceName[];
   passthrough: boolean;
 }
 
@@ -104,6 +106,7 @@ export function describeConnections(params: {
       capabilities: manifest?.capabilities ?? {},
       incremental: manifest?.incremental ?? [],
       customFields: manifest?.customFields ?? [],
+      stableList: manifest?.stableList ?? [],
       passthrough: manifest?.passthrough ?? false,
     };
   });
